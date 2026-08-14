@@ -1,0 +1,55 @@
+//// Router tests. The parser and the href printer live in one module so links
+//// cannot drift from the routes that match them; these tests assert that
+//// round trip explicitly.
+
+import gleeunit/should
+import sonic/router.{EventDetail, EventList, NotFound}
+
+pub fn root_is_the_event_list_test() {
+  router.parse("/") |> should.equal(EventList)
+  router.parse("") |> should.equal(EventList)
+}
+
+pub fn events_path_is_the_list_test() {
+  router.parse("/events") |> should.equal(EventList)
+}
+
+pub fn detail_paths_test() {
+  router.parse("/event/detail/abc123") |> should.equal(EventDetail("abc123"))
+  router.parse("/events/abc123") |> should.equal(EventDetail("abc123"))
+}
+
+/// Trailing slashes are a routing accident, not a different page.
+pub fn trailing_slash_is_ignored_test() {
+  router.parse("/events/") |> should.equal(EventList)
+  router.parse("/event/detail/abc123/") |> should.equal(EventDetail("abc123"))
+}
+
+/// A query string belongs to the handler, not to route matching.
+pub fn query_string_is_ignored_test() {
+  router.parse("/events?page=2") |> should.equal(EventList)
+  router.parse("/event/detail/x1?ref=share") |> should.equal(EventDetail("x1"))
+}
+
+pub fn unknown_paths_are_not_found_test() {
+  router.parse("/nope") |> should.equal(NotFound)
+  router.parse("/event/detail") |> should.equal(NotFound)
+  router.parse("/a/b/c/d") |> should.equal(NotFound)
+}
+
+/// The point of keeping `parse` and `href` together: every route a view can
+/// link to must match back to itself.
+pub fn href_round_trips_test() {
+  [EventList, EventDetail("abc123")]
+  |> should_round_trip
+}
+
+fn should_round_trip(routes: List(router.Route)) -> Nil {
+  case routes {
+    [] -> Nil
+    [route, ..rest] -> {
+      router.href(route) |> router.parse |> should.equal(route)
+      should_round_trip(rest)
+    }
+  }
+}
