@@ -1,0 +1,63 @@
+# sonic.sola.town — deployed with ginger.
+#
+#   export REGISTRY_TOKEN="$(cat /home/ubuntu/dev/registry-sola-town/.registry-token)"
+#   ginger deploy
+#
+# The image tag comes from the git sha of the build context, so the working tree
+# must be committed — otherwise ginger and the running container disagree about
+# which source is live.
+
+service: sonic
+image: registry.sola.town/sonic/sonic
+
+runner: nomad # Nomad already schedules multica + demo on this host
+egress: traefik # required with nomad; reuses the ginger-traefik already running
+
+# Traefik on this host runs on the `multica` network, not ginger's default `ginger`.
+# Undocumented top-level key (config/decode.gleam:45) — without it the container
+# lands on a network Traefik cannot reach.
+network: multica
+
+servers:
+  web:
+    hosts: [127.0.0.1] # single host: this machine, over SSH to itself
+    primary: true
+
+ssh:
+  user: ubuntu # default is root; this machine only has ubuntu
+
+registry:
+  server: registry.sola.town
+  username: ginger
+  password: REGISTRY_TOKEN # name of the env var, not the value
+
+proxy:
+  hosts: [sonic.sola.town]
+  app_port: 3000 # matches Dockerfile EXPOSE / SONIC_HOST=0.0.0.0
+  ssl: true
+  health_check_path: / # TODO confirm with @Jose — may need a real route
+
+builder:
+  arch: amd64
+  context: .
+
+# Nomad publishes the app's dynamic port to the host for its own health check
+# (Traefik never uses it — it talks to the container's docker-network IP
+# directly). Without this it binds 0.0.0.0, i.e. publicly reachable, plain
+# HTTP, no cert, bypassing Traefik entirely (found 2026-08-14 on demo.sola.town
+# by testing from outside this machine — it returned real content). This binds
+# it to loopback INSTEAD, at the host level only: the container's own server
+# still listens on 0.0.0.0 (see Dockerfile's SONIC_HOST) — it has to, otherwise
+# Traefik could not reach it over the docker network. Do not "fix" that to
+# 127.0.0.1; that breaks Traefik.
+# Requires the `client { host_network "loopback" { cidr = "127.0.0.0/8" } }`
+# block already present in this machine's /etc/nomad.d/nomad.hcl.
+nomad_host_network: loopback
+
+# ginger emits no HTTP→HTTPS redirect of its own: it puts one router on the `web`
+# entrypoint and another on `websecure`, so plain HTTP would be served as-is.
+# `sonic-web` is ginger's generated router name for the web entrypoint
+# (<service>-web).
+labels:
+  traefik.http.routers.sonic-web.middlewares: sonic-redirect
+  traefik.http.middlewares.sonic-redirect.redirectscheme.scheme: https
