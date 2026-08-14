@@ -13,6 +13,9 @@ pub type Route {
   EventDetail(id: String)
   GroupHome(handle: String)
   Communities
+  BadgeDetail(id: String)
+  BadgeClassDetail(id: String)
+  Schedule(handle: String)
   Signin
   SigninVerify
   Signout
@@ -41,8 +44,12 @@ pub fn parse(path: String) -> Route {
     // report a malformed URL.
     ["event", "detail"] -> NotFound
     ["event", handle] -> GroupHome(handle)
+    ["event", handle, "schedule"] -> Schedule(handle)
+    ["event", handle, "schedule", "list"] -> Schedule(handle)
     ["events", id] -> EventDetail(id)
     ["communities"] -> Communities
+    ["badge", id] -> BadgeDetail(id)
+    ["badge-class", id] -> BadgeClassDetail(id)
     ["signin"] -> Signin
     ["signin", "verify"] -> SigninVerify
     ["signout"] -> Signout
@@ -59,6 +66,9 @@ pub fn href(route: Route) -> String {
     EventDetail(id) -> "/event/detail/" <> id
     GroupHome(handle) -> "/event/" <> handle
     Communities -> "/communities"
+    BadgeDetail(id) -> "/badge/" <> id
+    BadgeClassDetail(id) -> "/badge-class/" <> id
+    Schedule(handle) -> "/event/" <> handle <> "/schedule"
     Signin -> "/signin"
     SigninVerify -> "/signin/verify"
     Signout -> "/signout"

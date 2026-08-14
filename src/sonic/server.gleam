@@ -15,17 +15,20 @@ import gleam/option.{type Option, None, Some}
 import gleam/string
 import lustre/element.{type Element}
 import sonic/api/auth
+import sonic/api/badge
 import sonic/api/event
 import sonic/api/group
 import sonic/api/types.{type ApiError, DecodeError, HttpError, NetworkError}
 import sonic/router
 import sonic/view/layout
+import sonic/view/page/badge_detail
 import sonic/view/page/communities
 import sonic/view/page/discover
 import sonic/view/page/error_page
 import sonic/view/page/event_detail
 import sonic/view/page/event_list
 import sonic/view/page/group_home
+import sonic/view/page/schedule
 import sonic/view/page/signin
 import sonic/web/request.{
   type Request, type Response, ClearSession, Get, Page, Post, Redirect, Request,
@@ -99,8 +102,13 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.EventDetail(id), _ ->
       render(event_detail_page(id, req.token), signed_in)
     router.Communities, _ -> render(communities_page(req.token), signed_in)
+    router.BadgeDetail(id), _ -> render(badge_page(id, req.token), signed_in)
+    router.BadgeClassDetail(id), _ ->
+      render(badge_class_page(id, req.token), signed_in)
     router.GroupHome(handle), _ ->
       render(group_home_page(handle, req.token), signed_in)
+    router.Schedule(handle), _ ->
+      render(schedule_page(handle, req.token), signed_in)
 
     router.Signin, Get -> page(200, signin.ask_email(None), signed_in)
     router.Signin, Post -> start_signin(req)
@@ -210,6 +218,51 @@ fn communities_page(
 ) -> Promise(Result(Element(msg), ApiError)) {
   use result <- promise.map(group.directory(page: 1, limit: 100, auth: token))
   result |> map_ok(communities.view)
+}
+
+fn badge_page(
+  id: String,
+  token: Option(String),
+) -> Promise(Result(Element(msg), ApiError)) {
+  use result <- promise.map(badge.detail(id: id, auth: token))
+  result |> map_ok(badge_detail.badge)
+}
+
+/// The class and the badges issued from it are independent reads, so they run
+/// concurrently rather than in sequence.
+fn badge_class_page(
+  id: String,
+  token: Option(String),
+) -> Promise(Result(Element(msg), ApiError)) {
+  let class = badge.class(id: id, auth: token)
+  let issued = badge.issued_from(class_id: id, page: 1, limit: 30, auth: token)
+
+  use class_result <- promise.await(class)
+  use issued_result <- promise.map(issued)
+
+  case class_result, issued_result {
+    Ok(found), Ok(page) -> Ok(badge_detail.class(found, page))
+    Error(err), _ -> Error(err)
+    _, Error(err) -> Error(err)
+  }
+}
+
+/// Same two concurrent reads as the group home; only the presentation differs.
+fn schedule_page(
+  handle: String,
+  token: Option(String),
+) -> Promise(Result(Element(msg), ApiError)) {
+  let detail = group.detail(handle: handle, auth: token)
+  let events = group.events(handle: handle, page: 1, limit: 100, auth: token)
+
+  use group_result <- promise.await(detail)
+  use events_result <- promise.map(events)
+
+  case group_result, events_result {
+    Ok(found), Ok(page) -> Ok(schedule.list_view(found, page))
+    Error(err), _ -> Error(err)
+    _, Error(err) -> Error(err)
+  }
 }
 
 fn render(

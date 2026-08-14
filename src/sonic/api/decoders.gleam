@@ -10,9 +10,10 @@
 import gleam/dynamic/decode.{type Decoder}
 import gleam/option.{type Option, None}
 import sonic/api/types.{
-  type Discover, type Event, type Group, type GroupDetail, type Meta, type Page,
-  type Place, type PopupCity, type Profile, type Track, type Venue, Discover,
-  Event, Group, GroupDetail, Meta, Page, Place, PopupCity, Profile, Track, Venue,
+  type Badge, type BadgeClass, type Discover, type Event, type Group,
+  type GroupDetail, type Meta, type Page, type Place, type PopupCity,
+  type Profile, type Track, type Venue, Badge, BadgeClass, Discover, Event,
+  Group, GroupDetail, Meta, Page, Place, PopupCity, Profile, Track, Venue,
 }
 
 /// `optional_field` with a `None` default: tolerates both `null` and absent.
@@ -222,5 +223,49 @@ pub fn group_detail() -> Decoder(GroupDetail) {
     end_date:,
     events_count:,
     memberships_count:,
+  ))
+}
+
+pub fn badge_class() -> Decoder(BadgeClass) {
+  use id <- decode.field("id", decode.string)
+  use title <- opt("title", decode.string)
+  use name <- opt("name", decode.string)
+  use content <- opt("content", decode.string)
+  use image_url <- opt("image_url", decode.string)
+  use badge_type <- opt("badge_type", decode.string)
+  use counter <- opt_or("counter", 0, decode.int)
+  use creator <- opt("creator", profile())
+  decode.success(BadgeClass(
+    id:,
+    title:,
+    name:,
+    content:,
+    image_url:,
+    badge_type:,
+    counter:,
+    creator:,
+  ))
+}
+
+pub fn badge() -> Decoder(Badge) {
+  use id <- decode.field("id", decode.string)
+  use title <- opt("title", decode.string)
+  use content <- opt("content", decode.string)
+  use image_url <- opt("image_url", decode.string)
+  use status <- opt("status", decode.string)
+  use created_at <- opt("created_at", decode.string)
+  use owner <- opt("owner", profile())
+  use creator <- opt("creator", profile())
+  use badge_class <- opt("badge_class", badge_class())
+  decode.success(Badge(
+    id:,
+    title:,
+    content:,
+    image_url:,
+    status:,
+    created_at:,
+    owner:,
+    creator:,
+    badge_class:,
   ))
 }

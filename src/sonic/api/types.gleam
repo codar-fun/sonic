@@ -163,3 +163,32 @@ pub type GroupDetail {
     memberships_count: Int,
   )
 }
+
+/// A badge class: the template a badge is minted from.
+pub type BadgeClass {
+  BadgeClass(
+    id: String,
+    title: Option(String),
+    name: Option(String),
+    content: Option(String),
+    image_url: Option(String),
+    badge_type: Option(String),
+    counter: Int,
+    creator: Option(Profile),
+  )
+}
+
+/// A badge: one issued instance of a class, held by an owner.
+pub type Badge {
+  Badge(
+    id: String,
+    title: Option(String),
+    content: Option(String),
+    image_url: Option(String),
+    status: Option(String),
+    created_at: Option(String),
+    owner: Option(Profile),
+    creator: Option(Profile),
+    badge_class: Option(BadgeClass),
+  )
+}
