@@ -18,6 +18,7 @@ import sonic/api/auth
 import sonic/api/badge
 import sonic/api/event
 import sonic/api/group
+import sonic/api/profile as profile_api
 import sonic/api/types.{type ApiError, DecodeError, HttpError, NetworkError}
 import sonic/router
 import sonic/view/layout
@@ -28,8 +29,10 @@ import sonic/view/page/error_page
 import sonic/view/page/event_detail
 import sonic/view/page/event_list
 import sonic/view/page/group_home
+import sonic/view/page/profile
 import sonic/view/page/schedule
 import sonic/view/page/signin
+import sonic/view/page/venues
 import sonic/web/request.{
   type Request, type Response, ClearSession, Get, Page, Post, Redirect, Request,
 }
@@ -109,6 +112,10 @@ pub fn handle(req: Request) -> Promise(Response) {
       render(group_home_page(handle, req.token), signed_in)
     router.Schedule(handle), _ ->
       render(schedule_page(handle, req.token), signed_in)
+    router.Venues(handle), _ ->
+      render(venues_page(handle, req.token), signed_in)
+    router.Profile(handle), _ ->
+      render(profile_page(handle, req.token), signed_in)
 
     router.Signin, Get -> page(200, signin.ask_email(None), signed_in)
     router.Signin, Post -> start_signin(req)
@@ -262,6 +269,34 @@ fn schedule_page(
     Ok(found), Ok(page) -> Ok(schedule.list_view(found, page))
     Error(err), _ -> Error(err)
     _, Error(err) -> Error(err)
+  }
+}
+
+fn profile_page(
+  handle: String,
+  token: Option(String),
+) -> Promise(Result(Element(msg), ApiError)) {
+  use result <- promise.map(profile_api.detail(handle: handle, auth: token))
+  result |> map_ok(profile.view)
+}
+
+/// Venues are addressed by the group's *id*, not its handle, so the group has
+/// to be resolved first — these two cannot run concurrently.
+fn venues_page(
+  handle: String,
+  token: Option(String),
+) -> Promise(Result(Element(msg), ApiError)) {
+  use group_result <- promise.await(group.detail(handle: handle, auth: token))
+
+  case group_result {
+    Error(err) -> promise.resolve(Error(err))
+    Ok(found) -> {
+      use venues_result <- promise.map(profile_api.venues(
+        group_id: found.id,
+        auth: token,
+      ))
+      venues_result |> map_ok(fn(page) { venues.view(found, page) })
+    }
   }
 }
 

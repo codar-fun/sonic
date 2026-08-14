@@ -12,8 +12,9 @@ import gleam/option.{type Option, None}
 import sonic/api/types.{
   type Badge, type BadgeClass, type Discover, type Event, type Group,
   type GroupDetail, type Meta, type Page, type Place, type PopupCity,
-  type Profile, type Track, type Venue, Badge, BadgeClass, Discover, Event,
-  Group, GroupDetail, Meta, Page, Place, PopupCity, Profile, Track, Venue,
+  type Profile, type Track, type UserProfile, type Venue, type VenueDetail,
+  Badge, BadgeClass, Discover, Event, Group, GroupDetail, Meta, Page, Place,
+  PopupCity, Profile, Track, UserProfile, Venue, VenueDetail,
 }
 
 /// `optional_field` with a `None` default: tolerates both `null` and absent.
@@ -267,5 +268,31 @@ pub fn badge() -> Decoder(Badge) {
     owner:,
     creator:,
     badge_class:,
+  ))
+}
+
+pub fn user_profile() -> Decoder(UserProfile) {
+  use id <- decode.field("id", decode.string)
+  use name <- opt("name", decode.string)
+  use nickname <- opt("nickname", decode.string)
+  use bio <- opt("bio", decode.string)
+  use image_url <- opt("image_url", decode.string)
+  decode.success(UserProfile(id:, name:, nickname:, bio:, image_url:))
+}
+
+pub fn venue_detail() -> Decoder(VenueDetail) {
+  use id <- decode.field("id", decode.string)
+  use name <- opt("name", decode.string)
+  use about <- opt("about", decode.string)
+  use capacity <- opt("capacity", decode.int)
+  use featured_image_url <- opt("featured_image_url", decode.string)
+  use tags <- opt_or("tags", [], decode.list(decode.string))
+  decode.success(VenueDetail(
+    id:,
+    name:,
+    about:,
+    capacity:,
+    featured_image_url:,
+    tags:,
   ))
 }

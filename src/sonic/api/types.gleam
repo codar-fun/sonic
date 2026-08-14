@@ -192,3 +192,26 @@ pub type Badge {
     badge_class: Option(BadgeClass),
   )
 }
+
+/// A public user profile.
+pub type UserProfile {
+  UserProfile(
+    id: String,
+    name: Option(String),
+    nickname: Option(String),
+    bio: Option(String),
+    image_url: Option(String),
+  )
+}
+
+/// A venue belonging to a group.
+pub type VenueDetail {
+  VenueDetail(
+    id: String,
+    name: Option(String),
+    about: Option(String),
+    capacity: Option(Int),
+    featured_image_url: Option(String),
+    tags: List(String),
+  )
+}
