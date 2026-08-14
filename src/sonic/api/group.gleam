@@ -42,3 +42,23 @@ pub fn events(
     expect: decoders.page(of: decoders.event()),
   )
 }
+
+/// `GET /groups/directory` — every active group, for `/communities`.
+///
+/// A different question from `/discover`'s curated slice: this is the full
+/// list, which is why an untagged group appears here and nowhere else.
+pub fn directory(
+  page page: Int,
+  limit limit: Int,
+  auth auth: Auth,
+) -> Promise(ApiResult(Page(GroupDetail))) {
+  client.get(
+    path: "/groups/directory",
+    query: [
+      #("page", Some(int.to_string(page))),
+      #("limit", Some(int.to_string(limit))),
+    ],
+    auth: auth,
+    expect: decoders.page(of: decoders.group_detail()),
+  )
+}

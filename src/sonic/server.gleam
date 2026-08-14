@@ -20,6 +20,7 @@ import sonic/api/group
 import sonic/api/types.{type ApiError, DecodeError, HttpError, NetworkError}
 import sonic/router
 import sonic/view/layout
+import sonic/view/page/communities
 import sonic/view/page/discover
 import sonic/view/page/error_page
 import sonic/view/page/event_detail
@@ -97,6 +98,7 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.EventList, _ -> render(event_list_page(req.token), signed_in)
     router.EventDetail(id), _ ->
       render(event_detail_page(id, req.token), signed_in)
+    router.Communities, _ -> render(communities_page(req.token), signed_in)
     router.GroupHome(handle), _ ->
       render(group_home_page(handle, req.token), signed_in)
 
@@ -201,6 +203,13 @@ fn group_home_page(
     Error(err), _ -> Error(err)
     _, Error(err) -> Error(err)
   }
+}
+
+fn communities_page(
+  token: Option(String),
+) -> Promise(Result(Element(msg), ApiError)) {
+  use result <- promise.map(group.directory(page: 1, limit: 100, auth: token))
+  result |> map_ok(communities.view)
 }
 
 fn render(
