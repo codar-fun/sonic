@@ -49,7 +49,8 @@ fn host(event: Event) -> Element(msg) {
     None, None -> None
   }
   case name {
-    Some(n) -> html.p([attribute.class("meta")], [element.text("Hosted by " <> n)])
+    Some(n) ->
+      html.p([attribute.class("meta")], [element.text("Hosted by " <> n)])
     None -> element.none()
   }
 }

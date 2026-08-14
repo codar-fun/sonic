@@ -22,7 +22,9 @@ pub fn main() -> Nil {
 /// One real request against api.sola.day, printing enough to tell a working
 /// transport from a working-looking one.
 fn smoke() -> Nil {
-  io.println("GET " <> event.calendar_url("<id>") |> string.replace("/calendar.ics", "") )
+  io.println(
+    "GET " <> event.calendar_url("<id>") |> string.replace("/calendar.ics", ""),
+  )
   let _ = {
     use result <- promise.map(event.first_page(limit: 3, auth: None))
     case result {

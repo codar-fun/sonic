@@ -132,14 +132,21 @@ fn finish_signin(req: Request) -> Promise(Response) {
     Some(email), Some(code) -> {
       use result <- promise.await(auth.verify_email_code(email, code))
       case result {
-        Ok(session) ->
-          promise.resolve(Redirect("/", Some(session.token)))
+        Ok(session) -> promise.resolve(Redirect("/", Some(session.token)))
         // A wrong code is a 4xx from upstream, not an outage: keep the visitor
         // on the code step with the address they already typed.
         Error(HttpError(status, _)) if status < 500 ->
-          page(200, signin.ask_code(email, Some("That code didn't work.")), False)
+          page(
+            200,
+            signin.ask_code(email, Some("That code didn't work.")),
+            False,
+          )
         Error(err) ->
-          page(status_for(err), signin.ask_code(email, Some(explain(err).1)), False)
+          page(
+            status_for(err),
+            signin.ask_code(email, Some(explain(err).1)),
+            False,
+          )
       }
     }
     Some(email), None ->
@@ -150,7 +157,9 @@ fn finish_signin(req: Request) -> Promise(Response) {
 
 // --- pages -----------------------------------------------------------------
 
-fn event_list_page(token: Option(String)) -> Promise(Result(Element(msg), ApiError)) {
+fn event_list_page(
+  token: Option(String),
+) -> Promise(Result(Element(msg), ApiError)) {
   use result <- promise.map(event.first_page(limit: 20, auth: token))
   result |> map_ok(event_list.view)
 }
@@ -177,11 +186,7 @@ fn render(
   }
 }
 
-fn page(
-  status: Int,
-  body: Element(msg),
-  signed_in: Bool,
-) -> Promise(Response) {
+fn page(status: Int, body: Element(msg), signed_in: Bool) -> Promise(Response) {
   promise.resolve(Page(status, document(body, signed_in)))
 }
 

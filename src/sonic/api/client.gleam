@@ -100,7 +100,10 @@ fn send(
   }
 }
 
-fn with_auth(req: request.Request(String), auth: Auth) -> request.Request(String) {
+fn with_auth(
+  req: request.Request(String),
+  auth: Auth,
+) -> request.Request(String) {
   case auth {
     Some(token) -> request.set_header(req, "authorization", "Bearer " <> token)
     None -> req

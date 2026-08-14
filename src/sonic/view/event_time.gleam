@@ -39,7 +39,11 @@ pub fn range(start: String, end: String) -> String {
 }
 
 /// With the event's timezone appended when the API supplied one.
-pub fn range_with_zone(start: String, end: String, zone: Option(String)) -> String {
+pub fn range_with_zone(
+  start: String,
+  end: String,
+  zone: Option(String),
+) -> String {
   case zone {
     Some(tz) if tz != "" -> range(start, end) <> " (" <> tz <> ")"
     _ -> range(start, end)
@@ -51,7 +55,13 @@ fn split(iso: String) -> Option(#(Int, Int, Int, Int, Int)) {
     [date, time] ->
       case string.split(date, "-"), string.split(time, ":") {
         [y, m, d], [h, min, ..] ->
-          case int.parse(y), int.parse(m), int.parse(d), int.parse(h), int.parse(min) {
+          case
+            int.parse(y),
+            int.parse(m),
+            int.parse(d),
+            int.parse(h),
+            int.parse(min)
+          {
             Ok(y), Ok(m), Ok(d), Ok(h), Ok(min) -> Some(#(y, m, d, h, min))
             _, _, _, _, _ -> None
           }

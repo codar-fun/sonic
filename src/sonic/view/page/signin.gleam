@@ -62,7 +62,9 @@ pub fn ask_code(email: String, error: Option(String)) -> Element(msg) {
       html.button([attribute.type_("submit")], [element.text("Sign in")]),
     ]),
     html.p([attribute.class("meta")], [
-      html.a([attribute.href("/signin")], [element.text("Use a different email")]),
+      html.a([attribute.href("/signin")], [
+        element.text("Use a different email"),
+      ]),
     ]),
   ])
 }

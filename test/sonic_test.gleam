@@ -49,7 +49,10 @@ pub fn tolerates_null_optionals_test() {
   let page = events_page()
   let has_a_null_optional =
     list.any(page.data, fn(e) {
-      e.timezone == None || e.place == None || e.venue == None || e.track == None
+      e.timezone == None
+      || e.place == None
+      || e.venue == None
+      || e.track == None
     })
   should.be_true(has_a_null_optional)
 }
@@ -73,8 +76,7 @@ pub fn wrong_type_still_fails_test() {
 pub fn absent_optional_is_none_test() {
   let minimal =
     "{\"id\":\"e1\",\"title\":\"T\",\"status\":\"published\",\"visibility\":\"public\",\"start_time\":\"a\",\"end_time\":\"b\"}"
-  let event =
-    minimal |> json.parse(decoders.event()) |> should.be_ok
+  let event = minimal |> json.parse(decoders.event()) |> should.be_ok
   event.timezone |> should.equal(None)
   event.tags |> should.equal([])
   event.participant_count |> should.equal(0)

@@ -15,11 +15,14 @@ pub fn view(page: Page(Event)) -> Element(msg) {
     html.h1([], [element.text("Events")]),
     html.p([attribute.class("meta")], [
       element.text(
-        int.to_string(page.meta.total) <> " events · page " <> int.to_string(page.meta.page),
+        int.to_string(page.meta.total)
+        <> " events · page "
+        <> int.to_string(page.meta.page),
       ),
     ]),
     case page.data {
-      [] -> html.p([attribute.class("empty")], [element.text("Nothing here yet.")])
+      [] ->
+        html.p([attribute.class("empty")], [element.text("Nothing here yet.")])
       events -> html.ul([attribute.class("list")], list.map(events, card))
     },
   ])
