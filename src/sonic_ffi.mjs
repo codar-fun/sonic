@@ -44,11 +44,24 @@ export function serve(port, handler) {
   const bind = host();
   const server = createServer(async (req, res) => {
     try {
-      const [status, html] = await handler(req.url ?? "/");
-      res.writeHead(status, {
+      const body = await readBody(req);
+      const [status, html, location, setCookie] = await handler(
+        req.method ?? "GET",
+        req.url ?? "/",
+        body,
+        req.headers.cookie ?? "",
+      );
+
+      const headers = {
         "content-type": "text/html; charset=utf-8",
+        // Pages reflect the caller's session, so they must never be cached by
+        // a shared proxy and handed to someone else.
         "cache-control": "no-store",
-      });
+      };
+      if (location) headers["location"] = location;
+      if (setCookie) headers["set-cookie"] = setCookie;
+
+      res.writeHead(status, headers);
       res.end(html);
     } catch (err) {
       // A throw here means a bug in the handler rather than a bad request;
@@ -59,6 +72,30 @@ export function serve(port, handler) {
   });
   server.listen(port, bind);
   return undefined;
+}
+
+// Bounded so a large or slow body cannot hold a connection open indefinitely.
+const MAX_BODY_BYTES = 64 * 1024;
+
+function readBody(req) {
+  if (req.method !== "POST" && req.method !== "PUT" && req.method !== "PATCH") {
+    return Promise.resolve("");
+  }
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        req.destroy();
+        resolve("");
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", reject);
+  });
 }
 
 export async function fetch_text(method, url, headers, body) {

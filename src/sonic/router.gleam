@@ -10,6 +10,9 @@ import gleam/string
 pub type Route {
   EventList
   EventDetail(id: String)
+  Signin
+  SigninVerify
+  Signout
   NotFound
 }
 
@@ -28,6 +31,9 @@ pub fn parse(path: String) -> Route {
     ["events"] -> EventList
     ["event", "detail", id] -> EventDetail(id)
     ["events", id] -> EventDetail(id)
+    ["signin"] -> Signin
+    ["signin", "verify"] -> SigninVerify
+    ["signout"] -> Signout
     _ -> NotFound
   }
 }
@@ -37,6 +43,9 @@ pub fn href(route: Route) -> String {
   case route {
     EventList -> "/"
     EventDetail(id) -> "/event/detail/" <> id
+    Signin -> "/signin"
+    SigninVerify -> "/signin/verify"
+    Signout -> "/signout"
     NotFound -> "/404"
   }
 }

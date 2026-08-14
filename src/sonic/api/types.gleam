@@ -77,6 +77,18 @@ pub type Event {
   )
 }
 
+/// A signed-in account. `name` is null until a username is chosen, which the
+/// upstream app treats as "not finished signing up" rather than "signed in".
+pub type User {
+  User(id: String, email: Option(String), name: Option(String))
+}
+
+/// What `/auth/verify_code` hands back: the JWT plus enough of the user to
+/// decide where to send them next.
+pub type Session {
+  Session(token: String, user: User)
+}
+
 /// Pagination envelope. Every list endpoint wraps its rows in `data` and
 /// reports `meta`.
 pub type Page(a) {
