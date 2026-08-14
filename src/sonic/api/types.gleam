@@ -145,3 +145,21 @@ pub type Discover {
     events: List(Event),
   )
 }
+
+/// A group's full record, as returned by `/groups/:handle`.
+pub type GroupDetail {
+  GroupDetail(
+    id: String,
+    name: Option(String),
+    nickname: Option(String),
+    bio: Option(String),
+    image_url: Option(String),
+    logo_url: Option(String),
+    banner_image_url: Option(String),
+    location: Option(String),
+    start_date: Option(String),
+    end_date: Option(String),
+    events_count: Int,
+    memberships_count: Int,
+  )
+}

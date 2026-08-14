@@ -16,6 +16,7 @@ import gleam/string
 import lustre/element.{type Element}
 import sonic/api/auth
 import sonic/api/event
+import sonic/api/group
 import sonic/api/types.{type ApiError, DecodeError, HttpError, NetworkError}
 import sonic/router
 import sonic/view/layout
@@ -23,6 +24,7 @@ import sonic/view/page/discover
 import sonic/view/page/error_page
 import sonic/view/page/event_detail
 import sonic/view/page/event_list
+import sonic/view/page/group_home
 import sonic/view/page/signin
 import sonic/web/request.{
   type Request, type Response, ClearSession, Get, Page, Post, Redirect, Request,
@@ -95,6 +97,8 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.EventList, _ -> render(event_list_page(req.token), signed_in)
     router.EventDetail(id), _ ->
       render(event_detail_page(id, req.token), signed_in)
+    router.GroupHome(handle), _ ->
+      render(group_home_page(handle, req.token), signed_in)
 
     router.Signin, Get -> page(200, signin.ask_email(None), signed_in)
     router.Signin, Post -> start_signin(req)
@@ -177,6 +181,26 @@ fn event_detail_page(
 ) -> Promise(Result(Element(msg), ApiError)) {
   use result <- promise.map(event.detail(id: id, auth: token))
   result |> map_ok(event_detail.view)
+}
+
+/// Two requests, run concurrently: the group and its events do not depend on
+/// each other, so waiting for them in sequence would double the page's latency
+/// for no reason.
+fn group_home_page(
+  handle: String,
+  token: Option(String),
+) -> Promise(Result(Element(msg), ApiError)) {
+  let group = group.detail(handle: handle, auth: token)
+  let events = group.events(handle: handle, page: 1, limit: 25, auth: token)
+
+  use group_result <- promise.await(group)
+  use events_result <- promise.map(events)
+
+  case group_result, events_result {
+    Ok(found), Ok(page) -> Ok(group_home.view(found, page))
+    Error(err), _ -> Error(err)
+    _, Error(err) -> Error(err)
+  }
 }
 
 fn render(

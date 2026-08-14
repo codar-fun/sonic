@@ -11,6 +11,7 @@ pub type Route {
   Home
   EventList
   EventDetail(id: String)
+  GroupHome(handle: String)
   Signin
   SigninVerify
   Signout
@@ -33,6 +34,7 @@ pub fn parse(path: String) -> Route {
     ["discover"] -> Home
     ["events"] -> EventList
     ["event", "detail", id] -> EventDetail(id)
+    ["event", handle] -> GroupHome(handle)
     ["events", id] -> EventDetail(id)
     ["signin"] -> Signin
     ["signin", "verify"] -> SigninVerify
@@ -48,6 +50,7 @@ pub fn href(route: Route) -> String {
     Home -> "/"
     EventList -> "/events"
     EventDetail(id) -> "/event/detail/" <> id
+    GroupHome(handle) -> "/event/" <> handle
     Signin -> "/signin"
     SigninVerify -> "/signin/verify"
     Signout -> "/signout"

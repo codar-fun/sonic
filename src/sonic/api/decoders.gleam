@@ -10,9 +10,9 @@
 import gleam/dynamic/decode.{type Decoder}
 import gleam/option.{type Option, None}
 import sonic/api/types.{
-  type Discover, type Event, type Group, type Meta, type Page, type Place,
-  type PopupCity, type Profile, type Track, type Venue, Discover, Event, Group,
-  Meta, Page, Place, PopupCity, Profile, Track, Venue,
+  type Discover, type Event, type Group, type GroupDetail, type Meta, type Page,
+  type Place, type PopupCity, type Profile, type Track, type Venue, Discover,
+  Event, Group, GroupDetail, Meta, Page, Place, PopupCity, Profile, Track, Venue,
 }
 
 /// `optional_field` with a `None` default: tolerates both `null` and absent.
@@ -194,4 +194,33 @@ pub fn discover() -> Decoder(Discover) {
   )
   use events <- decode.optional_field("events", [], decode.list(event()))
   decode.success(Discover(popup_cities:, groups:, communities:, events:))
+}
+
+pub fn group_detail() -> Decoder(GroupDetail) {
+  use id <- decode.field("id", decode.string)
+  use name <- opt("name", decode.string)
+  use nickname <- opt("nickname", decode.string)
+  use bio <- opt("bio", decode.string)
+  use image_url <- opt("image_url", decode.string)
+  use logo_url <- opt("logo_url", decode.string)
+  use banner_image_url <- opt("banner_image_url", decode.string)
+  use location <- opt("location", decode.string)
+  use start_date <- opt("start_date", decode.string)
+  use end_date <- opt("end_date", decode.string)
+  use events_count <- opt_or("events_count", 0, decode.int)
+  use memberships_count <- opt_or("memberships_count", 0, decode.int)
+  decode.success(GroupDetail(
+    id:,
+    name:,
+    nickname:,
+    bio:,
+    image_url:,
+    logo_url:,
+    banner_image_url:,
+    location:,
+    start_date:,
+    end_date:,
+    events_count:,
+    memberships_count:,
+  ))
 }
