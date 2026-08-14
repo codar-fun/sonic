@@ -40,6 +40,10 @@ WORKDIR /app
 COPY --from=build --chown=sonic:sonic /app/build/dev/javascript ./javascript
 COPY --from=build --chown=sonic:sonic /app/priv ./priv
 COPY --chown=sonic:sonic bin ./bin
+# The browser entry sits beside the compiled modules so its relative imports
+# resolve; it is kept out of the Gleam build so its path does not carry the
+# compiler version.
+COPY --chown=sonic:sonic bin/client_entry.mjs ./javascript/sonic/client_entry.mjs
 USER sonic
 
 # Must be 0.0.0.0, not loopback: Traefik reaches this container over the docker
@@ -47,6 +51,9 @@ USER sonic
 # and a uniform 502. Keeping the port off the *host* is a separate concern,
 # handled by `nomad_host_network: loopback` in ginger.yml.
 ENV SONIC_HOST=0.0.0.0
+# Compiled modules live at /app/javascript in the runtime image, not at the
+# build tree's path.
+ENV SONIC_JS_ROOT=javascript
 EXPOSE 3000
 
 CMD ["node", "bin/server.mjs"]

@@ -51,6 +51,12 @@ export function host() {
 // would point inside the build tree. Both `gleam run` from the project root and
 // the container (WORKDIR /app) put priv/ where this expects it.
 const STATIC_ROOT = pathToFileURL(join(process.cwd(), "priv", "static") + "/");
+// Compiled Gleam modules, served as native ESM under /static/js/. No bundler:
+// the compiler already emits modules, and adding one would be a build step
+// earning nothing at this size.
+const JS_ROOT = pathToFileURL(
+  join(process.cwd(), process.env.SONIC_JS_ROOT ?? "build/dev/javascript") + "/",
+);
 const CONTENT_TYPES = {
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -63,12 +69,21 @@ const CONTENT_TYPES = {
 };
 
 function serveStatic(req, res) {
-  const name = (req.url ?? "").slice("/static/".length).split("?")[0];
+  const url = (req.url ?? "").split("?")[0];
+  if (url.startsWith("/static/js/")) {
+    return serveFrom(JS_ROOT, url.slice("/static/js/".length), res);
+  }
+  const name = url.slice("/static/".length);
   // Reject anything that could climb out of the asset directory.
+  return serveFrom(STATIC_ROOT, name, res);
+}
+
+function serveFrom(root, name, res) {
+  // Reject anything that could climb out of the served directory.
   if (!name || name.includes("..") || name.startsWith("/")) return false;
 
-  const file = new URL(name, STATIC_ROOT);
-  if (!file.pathname.startsWith(STATIC_ROOT.pathname)) return false;
+  const file = new URL(name, root);
+  if (!file.pathname.startsWith(root.pathname)) return false;
 
   let body;
   try {
@@ -165,3 +180,4 @@ export async function fetch_text(method, url, headers, body) {
     return new GleamError(String(err?.message ?? err));
   }
 }
+

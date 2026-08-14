@@ -5,9 +5,11 @@
 //// the requirement, and using its classes makes any divergence show up as a
 //// diff instead of as a subtly different pixel.
 
+import gleam/option
 import lustre/attribute.{attribute}
 import lustre/element.{type Element}
 import lustre/element/html
+import sonic/ui/menu
 
 pub fn document(body: Element(msg), signed_in: Bool) -> Element(msg) {
   html.html([attribute("lang", "en")], [
@@ -32,6 +34,16 @@ pub fn document(body: Element(msg), signed_in: Bool) -> Element(msg) {
         attribute.rel("stylesheet"),
         attribute.href("/static/app.css"),
       ]),
+      // Native ESM: the Gleam output is already modules, so it is served as
+      // built rather than bundled. Deferred so it cannot block first paint —
+      // the page works without it.
+      html.script(
+        [
+          attribute.type_("module"),
+          attribute.src("/static/js/sonic/client_entry.mjs"),
+        ],
+        "",
+      ),
     ]),
     html.body([attribute.class("antialiased")], [
       html.div([attribute.class("min-h-[100svh]")], [
@@ -114,21 +126,41 @@ fn account(signed_in: Bool) -> Element(msg) {
     // dividers. Both are interactive components still to be built; the
     // dividers stay so the spacing does not shift when they arrive.
     html.span([attribute.class("w-[0.5px] h-3 bg-gray-400 mx-2")], []),
-    case signed_in {
-      True ->
-        html.a([attribute.href("/signout"), attribute.class("cursor-pointer")], [
-          element.text("Sign Out"),
-        ])
-      False ->
-        html.a(
-          [
-            attribute.href("/signin"),
-            attribute.class(
-              "cursor-pointer bg-primary text-primary-foreground rounded-full px-3 py-1",
-            ),
-          ],
-          [element.text("Sign In")],
-        )
-    },
+    // Rendered server-side in its closed state and hydrated in place, so the
+    // menu is usable markup before the bundle arrives rather than a hole. The
+    // session state is stamped on the mount point so the client has one source
+    // of truth for it rather than two.
+    html.div(
+      [
+        attribute.id("account-menu"),
+        attribute("data-signed-in", case signed_in {
+          True -> "true"
+          False -> "false"
+        }),
+      ],
+      [
+        menu.view(
+          open: False,
+          label: menu_label(signed_in),
+          on_toggle: option.None,
+          on_dismiss: option.None,
+          items: menu_items(signed_in),
+        ),
+      ],
+    ),
   ])
+}
+
+pub fn menu_label(signed_in: Bool) -> String {
+  case signed_in {
+    True -> "Account"
+    False -> "Sign In"
+  }
+}
+
+pub fn menu_items(signed_in: Bool) -> List(#(String, String)) {
+  case signed_in {
+    True -> [#("My Events", "/events"), #("Sign Out", "/signout")]
+    False -> [#("Sign In", "/signin")]
+  }
 }
