@@ -27,9 +27,21 @@ export function argv() {
   return List.fromArray(process.argv.slice(2));
 }
 
+export function host() {
+  return process.env.SONIC_HOST ?? "127.0.0.1";
+}
+
 // One HTTP server. The handler is Gleam: it takes a path and returns a promise
 // of #(status, html). Everything about routing and rendering lives there.
+//
+// The bind address is deliberately configurable and defaults to loopback.
+// Inside a container it MUST be 0.0.0.0 (set SONIC_HOST): Traefik on this host
+// is a docker provider and connects to the container's network address, so a
+// container-internal loopback bind yields a healthy container, a live router,
+// and a uniform 502. Not exposing a port on the *host* is a separate concern
+// from what the process listens on *inside* the container.
 export function serve(port, handler) {
+  const bind = host();
   const server = createServer(async (req, res) => {
     try {
       const [status, html] = await handler(req.url ?? "/");
@@ -45,7 +57,7 @@ export function serve(port, handler) {
       res.end(`handler crashed: ${err?.stack ?? err}`);
     }
   });
-  server.listen(port, "127.0.0.1");
+  server.listen(port, bind);
   return undefined;
 }
 

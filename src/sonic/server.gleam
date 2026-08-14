@@ -25,8 +25,14 @@ import sonic/view/page/event_list
 import sonic/view/page/error_page
 
 /// Start listening. The Node event loop keeps the process alive.
+///
+/// The bind address comes from `SONIC_HOST` and defaults to loopback; in a
+/// container it must be `0.0.0.0`, because Traefik reaches containers over the
+/// docker network rather than through a published host port.
 pub fn start(port port: Int) -> Nil {
-  io.println("sonic ssr listening on http://127.0.0.1:" <> int.to_string(port))
+  io.println(
+    "sonic ssr listening on http://" <> host() <> ":" <> int.to_string(port),
+  )
   serve(port, handle)
 }
 
@@ -108,3 +114,6 @@ fn document(body: Element(msg)) -> String {
 
 @external(javascript, "../sonic_ffi.mjs", "serve")
 fn serve(port: Int, handler: fn(String) -> Promise(#(Int, String))) -> Nil
+
+@external(javascript, "../sonic_ffi.mjs", "host")
+fn host() -> String
