@@ -35,7 +35,7 @@ proxy:
   hosts: [sonic.sola.town]
   app_port: 3000 # matches Dockerfile EXPOSE / SONIC_HOST=0.0.0.0
   ssl: true
-  health_check_path: / # TODO confirm with @Jose — may need a real route
+  health_check_path: /healthz # liveness only; deliberately does not call the API
 
 builder:
   arch: amd64

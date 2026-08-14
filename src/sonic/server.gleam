@@ -101,6 +101,11 @@ pub fn handle(req: Request) -> Promise(Response) {
 
     router.Signout, _ -> promise.resolve(ClearSession("/"))
 
+    // Liveness only: deliberately does not call the API. Tying the health
+    // check to an upstream would let an api.sola.day outage make Nomad kill a
+    // sonic that is running perfectly well.
+    router.Health, _ -> promise.resolve(Page(200, "ok"))
+
     router.NotFound, _ ->
       page(404, error_page.view(404, "No such page."), signed_in)
   }

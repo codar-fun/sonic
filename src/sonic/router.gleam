@@ -13,6 +13,7 @@ pub type Route {
   Signin
   SigninVerify
   Signout
+  Health
   NotFound
 }
 
@@ -34,6 +35,7 @@ pub fn parse(path: String) -> Route {
     ["signin"] -> Signin
     ["signin", "verify"] -> SigninVerify
     ["signout"] -> Signout
+    ["healthz"] -> Health
     _ -> NotFound
   }
 }
@@ -46,6 +48,7 @@ pub fn href(route: Route) -> String {
     Signin -> "/signin"
     SigninVerify -> "/signin/verify"
     Signout -> "/signout"
+    Health -> "/healthz"
     NotFound -> "/404"
   }
 }
