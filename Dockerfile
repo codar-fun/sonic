@@ -21,12 +21,24 @@ COPY src ./src
 COPY test ./test
 RUN gleam build
 
+# Tailwind scans src/**/*.gleam for class names, so this must run after the
+# sources are in place. app.css is a build artifact and is gitignored, so the
+# image builds it rather than shipping a copy that could disagree.
+COPY assets ./assets
+# priv/ carries the static images; Tailwind writes app.css alongside them, so
+# both reach the runtime stage through a single copy of this directory.
+COPY priv ./priv
+RUN cd assets \
+ && npm ci --no-audit --no-fund 2>/dev/null || npm install --no-audit --no-fund \
+ && npm run build
+
 FROM node:22-alpine AS runtime
 
 # Run as a non-root user. Nothing here needs to write to the filesystem.
 RUN addgroup -S sonic && adduser -S -G sonic sonic
 WORKDIR /app
 COPY --from=build --chown=sonic:sonic /app/build/dev/javascript ./javascript
+COPY --from=build --chown=sonic:sonic /app/priv ./priv
 COPY --chown=sonic:sonic bin ./bin
 USER sonic
 
