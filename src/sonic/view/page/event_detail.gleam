@@ -1,4 +1,10 @@
 //// A single event.
+////
+//// Structure follows seastar-app's `event/detail/[eventid]/page.tsx`: a
+//// `page-width !pt-4 !pb-12` wrapper, then a column pair that reverses at the
+//// `sm` breakpoint — the cover is first in source order but second on wide
+//// screens (`order-1 sm:order-2`), so mobile leads with the image and desktop
+//// leads with the text, exactly as upstream.
 
 import gleam/int
 import gleam/list
@@ -8,63 +14,185 @@ import lustre/element.{type Element}
 import lustre/element/html
 import sonic/api/event as event_api
 import sonic/api/types.{type Event}
+import sonic/view/badge
 import sonic/view/event_time
 
 pub fn view(event: Event) -> Element(msg) {
-  html.article([], [
-    cover(event.cover),
-    html.h1([], [element.text(event.title)]),
-    html.p([attribute.class("meta")], [
-      element.text(event_time.range_with_zone(
-        event.start_time,
-        event.end_time,
-        event.timezone,
-      )),
+  html.div([attribute.class("page-width !pt-4 !pb-12")], [
+    html.div(
+      [
+        attribute.class(
+          "flex flex-row items-center justify-between sm:mb-8 mb-4",
+        ),
+      ],
+      [
+        html.a(
+          [attribute.href("/"), attribute.class("flex-row-item-center text-sm")],
+          [element.text("← Back")],
+        ),
+      ],
+    ),
+    html.div([attribute.class("flex flex-col sm:flex-row")], [
+      html.div(
+        [
+          attribute.class(
+            "min-w-[324px] sm:max-w-[324px] mb-8 order-1 sm:order-2 sm:mb-0",
+          ),
+        ],
+        [cover(event.cover)],
+      ),
+      html.div([attribute.class("flex-1 sm:mr-9 order-2 sm:order-1")], [
+        html.div([attribute.class("text-4xl font-semibold w-full")], [
+          element.text(event.title),
+        ]),
+        track(event),
+        badges(event),
+        details(event),
+        notes(event.notes),
+        links(event),
+      ]),
     ]),
-    host(event),
-    location(event),
-    tags(event.tags),
-    attendance(event),
-    notes(event.notes),
-    links(event),
   ])
 }
 
 fn cover(url: Option(String)) -> Element(msg) {
   case url {
     Some(src) if src != "" ->
-      html.img([
-        attribute.src(src),
-        attribute.alt(""),
-        attribute.class("cover"),
-      ])
+      html.div(
+        [attribute.class("w-[324px] h-[324px] overflow-hidden mx-auto")],
+        [
+          html.img([
+            attribute.src(src),
+            attribute.alt(""),
+            attribute.class("w-full h-full object-cover rounded-lg"),
+          ]),
+        ],
+      )
+    _ ->
+      html.div(
+        [
+          attribute.class(
+            "w-[324px] h-[324px] overflow-hidden mx-auto rounded-lg bg-gray-100",
+          ),
+        ],
+        [],
+      )
+  }
+}
+
+fn track(event: Event) -> Element(msg) {
+  case event.track {
+    Some(t) ->
+      case t.title {
+        Some(title) if title != "" ->
+          html.div(
+            [attribute.class("flex-row-item-center gap-1.5 text-lg mt-1")],
+            [element.text(title)],
+          )
+        _ -> element.none()
+      }
+    None -> element.none()
+  }
+}
+
+/// Status badges, in the original's order.
+///
+/// `past`/`ongoing`/`upcoming` are derived from the event's own times in the
+/// upstream app; without a clock available here only the states the payload
+/// states outright are shown, rather than guessing at a comparison that would
+/// be wrong in half the world's timezones.
+fn badges(event: Event) -> Element(msg) {
+  let flags =
+    [
+      case event.visibility {
+        "private" -> Some(#(badge.Private, "Private"))
+        _ -> None
+      },
+      case event.status {
+        "pending" -> Some(#(badge.Pending, "Pending"))
+        "cancelled" -> Some(#(badge.Cancel, "Cancelled"))
+        _ -> None
+      },
+    ]
+    |> list.filter_map(fn(flag) {
+      case flag {
+        Some(pair) -> Ok(badge.view(pair.0, pair.1))
+        None -> Error(Nil)
+      }
+    })
+
+  case flags {
+    [] -> element.none()
+    _ ->
+      html.div(
+        [
+          attribute.class(
+            "flex-row-item-center my-3 gap-3 overflow-auto !flex-wrap",
+          ),
+        ],
+        flags,
+      )
+  }
+}
+
+fn details(event: Event) -> Element(msg) {
+  html.div([attribute.class("border-gray-200 border rounded-lg p-4 mt-6")], [
+    row(
+      Some(event_time.range_with_zone(
+        event.start_time,
+        event.end_time,
+        event.timezone,
+      )),
+    ),
+    row(location(event)),
+    row(host(event)),
+    row(Some(attendance(event))),
+    tags(event.tags),
+  ])
+}
+
+fn row(value: Option(String)) -> Element(msg) {
+  case value {
+    Some(text) if text != "" ->
+      html.div(
+        [attribute.class("flex-row-item-center text-sm mt-2 first:mt-0")],
+        [
+          element.text(text),
+        ],
+      )
     _ -> element.none()
   }
 }
 
-fn host(event: Event) -> Element(msg) {
-  let name = case event.group, event.owner {
-    Some(g), _ -> pick(g.nickname, g.name)
-    None, Some(o) -> pick(o.nickname, o.name)
-    None, None -> None
-  }
-  case name {
-    Some(n) ->
-      html.p([attribute.class("meta")], [element.text("Hosted by " <> n)])
-    None -> element.none()
-  }
-}
-
-fn location(event: Event) -> Element(msg) {
-  let text = case event.place, event.venue {
+fn location(event: Event) -> Option(String) {
+  case event.place, event.venue {
     Some(p), _ -> first_present([p.title, p.formatted_address, p.location])
     None, Some(v) -> first_present([v.title, v.location])
     None, None -> None
   }
-  case text {
-    Some(where) ->
-      html.p([attribute.class("meta")], [element.text("At " <> where)])
-    None -> element.none()
+}
+
+fn host(event: Event) -> Option(String) {
+  let name = case event.group, event.owner {
+    Some(g), _ -> first_present([g.nickname, g.name])
+    None, Some(o) -> first_present([o.nickname, o.name])
+    None, None -> None
+  }
+  case name {
+    Some(value) -> Some("Hosted by " <> value)
+    None -> None
+  }
+}
+
+fn attendance(event: Event) -> String {
+  let count = int.to_string(event.participant_count)
+  let base = case event.max_participant {
+    Some(max) -> count <> " of " <> int.to_string(max) <> " attending"
+    None -> count <> " attending"
+  }
+  case event.require_approval {
+    True -> base <> " · approval required"
+    False -> base
   }
 }
 
@@ -72,34 +200,32 @@ fn tags(values: List(String)) -> Element(msg) {
   case values {
     [] -> element.none()
     _ ->
-      html.ul(
-        [attribute.class("tags")],
+      html.div(
+        [attribute.class("flex-row-item-center mt-3 gap-2 !flex-wrap")],
         list.map(values, fn(tag) {
-          html.li([attribute.class("tag")], [element.text(tag)])
+          html.div(
+            [
+              attribute.class(
+                "text-xs border rounded-full px-2 py-0.5 text-gray-500",
+              ),
+            ],
+            [element.text(tag)],
+          )
         }),
       )
   }
 }
 
-fn attendance(event: Event) -> Element(msg) {
-  let count = int.to_string(event.participant_count)
-  let text = case event.max_participant {
-    Some(max) -> count <> " of " <> int.to_string(max) <> " attending"
-    None -> count <> " attending"
-  }
-  let approval = case event.require_approval {
-    True -> " · approval required"
-    False -> ""
-  }
-  html.p([attribute.class("meta")], [element.text(text <> approval)])
-}
-
 fn notes(value: Option(String)) -> Element(msg) {
   case value {
     Some(text) if text != "" ->
-      html.div([], [
-        html.h2([], [element.text("About")]),
-        html.p([attribute.class("notes")], [element.text(text)]),
+      html.div([attribute.class("mt-6")], [
+        html.div([attribute.class("font-semibold mb-2")], [
+          element.text("About"),
+        ]),
+        html.div([attribute.class("whitespace-pre-wrap text-sm")], [
+          element.text(text),
+        ]),
       ])
     _ -> element.none()
   }
@@ -114,7 +240,16 @@ fn links(event: Event) -> Element(msg) {
     ]
     |> list.filter_map(fn(entry) {
       case entry.1 {
-        Some(url) if url != "" -> Ok(#(entry.0, url))
+        Some(url) if url != "" ->
+          Ok(
+            html.a(
+              [
+                attribute.href(url),
+                attribute.class("flex-row-item-center text-sm underline"),
+              ],
+              [element.text(entry.0)],
+            ),
+          )
         _ -> Error(Nil)
       }
     })
@@ -122,22 +257,11 @@ fn links(event: Event) -> Element(msg) {
   case entries {
     [] -> element.none()
     _ ->
-      html.div([], [
-        html.h2([], [element.text("Links")]),
-        html.ul(
-          [attribute.class("list")],
-          list.map(entries, fn(entry) {
-            html.li([], [
-              html.a([attribute.href(entry.1)], [element.text(entry.0)]),
-            ])
-          }),
-        ),
-      ])
+      html.div(
+        [attribute.class("flex-row-item-center mt-6 gap-4 !flex-wrap")],
+        entries,
+      )
   }
-}
-
-fn pick(first: Option(String), second: Option(String)) -> Option(String) {
-  first_present([first, second])
 }
 
 fn first_present(values: List(Option(String))) -> Option(String) {
