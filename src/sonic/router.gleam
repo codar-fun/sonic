@@ -16,6 +16,8 @@ pub type Route {
   BadgeDetail(id: String)
   BadgeClassDetail(id: String)
   Schedule(handle: String)
+  ScheduleCompact(handle: String)
+  ScheduleVenue(handle: String)
   Venues(handle: String)
   Profile(handle: String)
   Signin
@@ -50,6 +52,8 @@ pub fn parse(path: String) -> Route {
     ["event", handle, "venues"] -> Venues(handle)
     ["profile", handle] -> Profile(handle)
     ["event", handle, "schedule", "list"] -> Schedule(handle)
+    ["event", handle, "schedule", "compact"] -> ScheduleCompact(handle)
+    ["event", handle, "schedule", "venue"] -> ScheduleVenue(handle)
     ["events", id] -> EventDetail(id)
     ["communities"] -> Communities
     ["badge", id] -> BadgeDetail(id)
@@ -73,6 +77,8 @@ pub fn href(route: Route) -> String {
     BadgeDetail(id) -> "/badge/" <> id
     BadgeClassDetail(id) -> "/badge-class/" <> id
     Schedule(handle) -> "/event/" <> handle <> "/schedule"
+    ScheduleCompact(handle) -> "/event/" <> handle <> "/schedule/compact"
+    ScheduleVenue(handle) -> "/event/" <> handle <> "/schedule/venue"
     Venues(handle) -> "/event/" <> handle <> "/venues"
     Profile(handle) -> "/profile/" <> handle
     Signin -> "/signin"

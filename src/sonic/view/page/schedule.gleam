@@ -6,8 +6,8 @@
 //// that, so this reproduces the grouping rather than a flat list that merely
 //// looks similar.
 ////
-//// The other four variants (day, week, venue, compact) are different
-//// presentations of the same fetch and are not built yet.
+//// The other variants are different presentations of the same fetch, so they
+//// share the grouping and differ only in how a day's events are laid out.
 
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -19,7 +19,34 @@ import sonic/api/types.{type Event, type GroupDetail, type Page}
 import sonic/router
 import sonic/view/event_time
 
+/// How a day's events are laid out. The fetch and the grouping are identical
+/// across all of these; only this differs, which is why they are one module.
+pub type Layout {
+  /// One row per event with time, title and venue.
+  ListLayout
+  /// Title and time only — the embed-sized variant.
+  CompactLayout
+  /// Grouped by venue within each day.
+  VenueLayout
+}
+
 pub fn list_view(group: GroupDetail, events: Page(Event)) -> Element(msg) {
+  view(group, events, ListLayout)
+}
+
+pub fn compact_view(group: GroupDetail, events: Page(Event)) -> Element(msg) {
+  view(group, events, CompactLayout)
+}
+
+pub fn venue_view(group: GroupDetail, events: Page(Event)) -> Element(msg) {
+  view(group, events, VenueLayout)
+}
+
+fn view(
+  group: GroupDetail,
+  events: Page(Event),
+  layout: Layout,
+) -> Element(msg) {
   html.div([attribute.class("page-width min-h-[100svh] !pt-4 !pb-12")], [
     html.div([attribute.class("text-lg font-semibold mb-4")], [
       element.text(display_name(group) <> " · Schedule"),
@@ -29,7 +56,11 @@ pub fn list_view(group: GroupDetail, events: Page(Event)) -> Element(msg) {
         html.div([attribute.class("text-center text-gray-400 py-10")], [
           element.text("No events scheduled."),
         ])
-      rows -> html.div([], list.map(group_by_date(rows), day_block))
+      rows ->
+        html.div(
+          [],
+          list.map(group_by_date(rows), fn(entry) { day_block(entry, layout) }),
+        )
     },
   ])
 }
@@ -54,7 +85,7 @@ fn date_of(iso: String) -> String {
   }
 }
 
-fn day_block(entry: #(String, List(Event))) -> Element(msg) {
+fn day_block(entry: #(String, List(Event)), layout: Layout) -> Element(msg) {
   html.div([attribute.class("mb-6")], [
     html.div(
       [
@@ -64,7 +95,10 @@ fn day_block(entry: #(String, List(Event))) -> Element(msg) {
       ],
       [element.text(heading(entry.0))],
     ),
-    html.div([], list.map(entry.1, row)),
+    case layout {
+      VenueLayout -> html.div([], list.map(by_venue(entry.1), venue_block))
+      _ -> html.div([], list.map(entry.1, fn(event) { row(event, layout) }))
+    },
   ])
 }
 
@@ -78,13 +112,53 @@ fn heading(date: String) -> String {
   }
 }
 
-fn row(event: Event) -> Element(msg) {
+/// Events of one day grouped under their venue, for the venue layout.
+fn by_venue(events: List(Event)) -> List(#(String, List(Event))) {
+  events
+  |> list.fold([], fn(acc, event) {
+    let key = venue_name(event)
+    case list.key_find(acc, key) {
+      Ok(existing) -> list.key_set(acc, key, list.append(existing, [event]))
+      Error(_) -> list.append(acc, [#(key, [event])])
+    }
+  })
+}
+
+fn venue_block(entry: #(String, List(Event))) -> Element(msg) {
+  html.div([attribute.class("mb-3")], [
+    html.div([attribute.class("text-xs font-semibold text-gray-400 mb-1")], [
+      element.text(entry.0),
+    ]),
+    html.div([], list.map(entry.1, fn(event) { row(event, VenueLayout) })),
+  ])
+}
+
+fn venue_name(event: Event) -> String {
+  case event.venue, event.place {
+    Some(v), _ ->
+      case first_present([v.title, v.location]) {
+        Some(name) -> name
+        None -> "Unspecified"
+      }
+    None, Some(p) ->
+      case first_present([p.title, p.formatted_address]) {
+        Some(name) -> name
+        None -> "Unspecified"
+      }
+    None, None -> "Unspecified"
+  }
+}
+
+fn row(event: Event, layout: Layout) -> Element(msg) {
   html.a(
     [
       attribute.href(router.href(router.EventDetail(event.id))),
-      attribute.class(
-        "flex-row-item-center justify-between p-3 rounded-lg mb-2 shadow hover:shadow-md transition-shadow bg-[var(--background)]",
-      ),
+      attribute.class(case layout {
+        CompactLayout ->
+          "flex-row-item-center justify-between px-2 py-1 rounded mb-1 hover:bg-gray-50"
+        _ ->
+          "flex-row-item-center justify-between p-3 rounded-lg mb-2 shadow hover:shadow-md transition-shadow bg-[var(--background)]"
+      }),
     ],
     [
       html.div([attribute.class("flex-1 min-w-0")], [
@@ -96,7 +170,12 @@ fn row(event: Event) -> Element(msg) {
         html.div([attribute.class("font-semibold truncate mt-1")], [
           element.text(event.title),
         ]),
-        venue_line(event),
+        case layout {
+          // The venue layout already prints the venue as a heading, and the
+          // compact layout has no room for it.
+          ListLayout -> venue_line(event)
+          _ -> element.none()
+        },
       ]),
     ],
   )

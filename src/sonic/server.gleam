@@ -19,7 +19,10 @@ import sonic/api/badge
 import sonic/api/event
 import sonic/api/group
 import sonic/api/profile as profile_api
-import sonic/api/types.{type ApiError, DecodeError, HttpError, NetworkError}
+import sonic/api/types.{
+  type ApiError, type Event, type GroupDetail, type Page, DecodeError, HttpError,
+  NetworkError,
+}
 import sonic/router
 import sonic/view/layout
 import sonic/view/page/badge_detail
@@ -111,7 +114,11 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.GroupHome(handle), _ ->
       render(group_home_page(handle, req.token), signed_in)
     router.Schedule(handle), _ ->
-      render(schedule_page(handle, req.token), signed_in)
+      render(schedule_page(handle, req.token, schedule.list_view), signed_in)
+    router.ScheduleCompact(handle), _ ->
+      render(schedule_page(handle, req.token, schedule.compact_view), signed_in)
+    router.ScheduleVenue(handle), _ ->
+      render(schedule_page(handle, req.token, schedule.venue_view), signed_in)
     router.Venues(handle), _ ->
       render(venues_page(handle, req.token), signed_in)
     router.Profile(handle), _ ->
@@ -258,6 +265,7 @@ fn badge_class_page(
 fn schedule_page(
   handle: String,
   token: Option(String),
+  layout: fn(GroupDetail, Page(Event)) -> Element(msg),
 ) -> Promise(Result(Element(msg), ApiError)) {
   let detail = group.detail(handle: handle, auth: token)
   let events = group.events(handle: handle, page: 1, limit: 100, auth: token)
@@ -266,7 +274,7 @@ fn schedule_page(
   use events_result <- promise.map(events)
 
   case group_result, events_result {
-    Ok(found), Ok(page) -> Ok(schedule.list_view(found, page))
+    Ok(found), Ok(page) -> Ok(layout(found, page))
     Error(err), _ -> Error(err)
     _, Error(err) -> Error(err)
   }
