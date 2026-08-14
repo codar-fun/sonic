@@ -3,7 +3,7 @@
 //// round trip explicitly.
 
 import gleeunit/should
-import sonic/router.{EventDetail, EventList, Home, NotFound}
+import sonic/router.{EventDetail, EventList, GroupHome, Home, NotFound}
 
 /// seastar-app serves Discover at `/`, not an events list, so sonic does too.
 pub fn root_is_the_home_page_test() {
@@ -54,4 +54,11 @@ fn should_round_trip(routes: List(router.Route)) -> Nil {
       should_round_trip(rest)
     }
   }
+}
+
+/// `/event/:handle` must not swallow the id-less detail path: without a guard
+/// it resolves to a group literally named "detail".
+pub fn detail_is_not_a_group_handle_test() {
+  router.parse("/event/detail") |> should.equal(NotFound)
+  router.parse("/event/shanhaiwoo") |> should.equal(GroupHome("shanhaiwoo"))
 }

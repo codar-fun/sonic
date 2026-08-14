@@ -34,6 +34,11 @@ pub fn parse(path: String) -> Route {
     ["discover"] -> Home
     ["events"] -> EventList
     ["event", "detail", id] -> EventDetail(id)
+    // `detail` is a path segment, not a group handle. Without this guard
+    // /event/detail (the id-less form) would resolve to a group named
+    // "detail" and 404 from the API instead of from here — a confusing way to
+    // report a malformed URL.
+    ["event", "detail"] -> NotFound
     ["event", handle] -> GroupHome(handle)
     ["events", id] -> EventDetail(id)
     ["signin"] -> Signin
