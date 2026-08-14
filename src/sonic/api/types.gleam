@@ -116,3 +116,32 @@ pub type ApiError {
   /// The request never completed (DNS, TLS, timeout, offline).
   NetworkError(detail: String)
 }
+
+/// A popup city: a group with dates and a location, shown on the home page.
+///
+/// Only the fields the home page renders are modelled. The payload carries
+/// ~30 keys; decoding all of them would be work in service of nothing, and
+/// every one modelled is one more thing to keep in step with the API.
+pub type PopupCity {
+  PopupCity(
+    id: String,
+    name: Option(String),
+    nickname: Option(String),
+    image_url: Option(String),
+    banner_image_url: Option(String),
+    location: Option(String),
+    start_date: Option(String),
+    end_date: Option(String),
+    group_tags: List(String),
+  )
+}
+
+/// What `/discover` returns: the home page's whole payload in one request.
+pub type Discover {
+  Discover(
+    popup_cities: List(PopupCity),
+    groups: List(Group),
+    communities: List(Group),
+    events: List(Event),
+  )
+}

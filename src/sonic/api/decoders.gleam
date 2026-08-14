@@ -10,13 +10,35 @@
 import gleam/dynamic/decode.{type Decoder}
 import gleam/option.{type Option, None}
 import sonic/api/types.{
-  type Event, type Group, type Meta, type Page, type Place, type Profile,
-  type Track, type Venue, Event, Group, Meta, Page, Place, Profile, Track, Venue,
+  type Discover, type Event, type Group, type Meta, type Page, type Place,
+  type PopupCity, type Profile, type Track, type Venue, Discover, Event, Group,
+  Meta, Page, Place, PopupCity, Profile, Track, Venue,
 }
 
 /// `optional_field` with a `None` default: tolerates both `null` and absent.
 fn opt(name: String, inner: Decoder(a), next: fn(Option(a)) -> Decoder(b)) {
   decode.optional_field(name, None, decode.optional(inner), next)
+}
+
+/// Like `opt` but for non-optional fields with a sensible default.
+///
+/// `decode.optional_field` alone only covers an *absent* key — an explicit
+/// `null` still runs the inner decoder and fails. The API sends both: one event
+/// in twenty carries `"require_approval": null`, which 502'd the whole page
+/// until this existed. Absent and null must mean the same thing here.
+fn opt_or(
+  name: String,
+  default: a,
+  inner: Decoder(a),
+  next: fn(a) -> Decoder(b),
+) {
+  decode.optional_field(
+    name,
+    default,
+    decode.optional(inner)
+      |> decode.map(fn(value) { option.unwrap(value, default) }),
+    next,
+  )
 }
 
 pub fn profile() -> Decoder(Profile) {
@@ -72,19 +94,11 @@ pub fn event() -> Decoder(Event) {
   use notes <- opt("notes", decode.string)
   use meeting_url <- opt("meeting_url", decode.string)
   use external_url <- opt("external_url", decode.string)
-  use participant_count <- decode.optional_field(
-    "participant_count",
-    0,
-    decode.int,
-  )
+  use participant_count <- opt_or("participant_count", 0, decode.int)
   use max_participant <- opt("max_participant", decode.int)
-  use require_approval <- decode.optional_field(
-    "require_approval",
-    False,
-    decode.bool,
-  )
-  use pinned <- decode.optional_field("pinned", False, decode.bool)
-  use tags <- decode.optional_field("tags", [], decode.list(decode.string))
+  use require_approval <- opt_or("require_approval", False, decode.bool)
+  use pinned <- opt_or("pinned", False, decode.bool)
+  use tags <- opt_or("tags", [], decode.list(decode.string))
   use owner <- opt("owner", profile())
   use group <- opt("group", group())
   use place <- opt("place", place())
@@ -116,10 +130,10 @@ pub fn event() -> Decoder(Event) {
 }
 
 pub fn meta() -> Decoder(Meta) {
-  use page <- decode.optional_field("page", 1, decode.int)
-  use limit <- decode.optional_field("limit", 0, decode.int)
-  use total <- decode.optional_field("total", 0, decode.int)
-  use total_pages <- decode.optional_field("total_pages", 0, decode.int)
+  use page <- opt_or("page", 1, decode.int)
+  use limit <- opt_or("limit", 0, decode.int)
+  use total <- opt_or("total", 0, decode.int)
+  use total_pages <- opt_or("total_pages", 0, decode.int)
   use next_page <- opt("next_page", decode.int)
   use prev_page <- opt("prev_page", decode.int)
   decode.success(Meta(
@@ -137,4 +151,47 @@ pub fn page(of inner: Decoder(a)) -> Decoder(Page(a)) {
   use data <- decode.field("data", decode.list(inner))
   use meta <- decode.field("meta", meta())
   decode.success(Page(data:, meta:))
+}
+
+pub fn popup_city() -> Decoder(PopupCity) {
+  use id <- decode.field("id", decode.string)
+  use name <- opt("name", decode.string)
+  use nickname <- opt("nickname", decode.string)
+  use image_url <- opt("image_url", decode.string)
+  use banner_image_url <- opt("banner_image_url", decode.string)
+  use location <- opt("location", decode.string)
+  use start_date <- opt("start_date", decode.string)
+  use end_date <- opt("end_date", decode.string)
+  use group_tags <- opt_or("group_tags", [], decode.list(decode.string))
+  decode.success(PopupCity(
+    id:,
+    name:,
+    nickname:,
+    image_url:,
+    banner_image_url:,
+    location:,
+    start_date:,
+    end_date:,
+    group_tags:,
+  ))
+}
+
+/// `/discover` — the home page's entire payload. Every list defaults to empty
+/// rather than failing: the endpoint genuinely returns `communities: []`, and a
+/// home page that 502s because one section is empty would be worse than one
+/// that renders the sections it has.
+pub fn discover() -> Decoder(Discover) {
+  use popup_cities <- decode.optional_field(
+    "popup_cities",
+    [],
+    decode.list(popup_city()),
+  )
+  use groups <- decode.optional_field("groups", [], decode.list(group()))
+  use communities <- decode.optional_field(
+    "communities",
+    [],
+    decode.list(group()),
+  )
+  use events <- decode.optional_field("events", [], decode.list(event()))
+  decode.success(Discover(popup_cities:, groups:, communities:, events:))
 }

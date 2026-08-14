@@ -9,7 +9,7 @@ import gleam/javascript/promise.{type Promise}
 import gleam/option.{type Option, None, Some}
 import sonic/api/client.{type ApiResult, type Auth}
 import sonic/api/decoders
-import sonic/api/types.{type Event, type Page}
+import sonic/api/types.{type Discover, type Event, type Page}
 
 /// `GET /events` — a page of public events, newest page first.
 pub fn list(
@@ -89,4 +89,17 @@ pub fn token(value: Option(String)) -> Auth {
     Some("") -> None
     other -> other
   }
+}
+
+/// `GET /discover` — the home page's whole payload in one request.
+///
+/// Lives here rather than in its own module because it is one call; if the
+/// home page grows more sources this moves to `sonic/api/discover`.
+pub fn discover() -> Promise(ApiResult(Discover)) {
+  client.get(
+    path: "/discover",
+    query: [],
+    auth: None,
+    expect: decoders.discover(),
+  )
 }

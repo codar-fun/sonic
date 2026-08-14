@@ -3,11 +3,13 @@
 //// round trip explicitly.
 
 import gleeunit/should
-import sonic/router.{EventDetail, EventList, NotFound}
+import sonic/router.{EventDetail, EventList, Home, NotFound}
 
-pub fn root_is_the_event_list_test() {
-  router.parse("/") |> should.equal(EventList)
-  router.parse("") |> should.equal(EventList)
+/// seastar-app serves Discover at `/`, not an events list, so sonic does too.
+pub fn root_is_the_home_page_test() {
+  router.parse("/") |> should.equal(Home)
+  router.parse("") |> should.equal(Home)
+  router.parse("/discover") |> should.equal(Home)
 }
 
 pub fn events_path_is_the_list_test() {
@@ -40,7 +42,7 @@ pub fn unknown_paths_are_not_found_test() {
 /// The point of keeping `parse` and `href` together: every route a view can
 /// link to must match back to itself.
 pub fn href_round_trips_test() {
-  [EventList, EventDetail("abc123")]
+  [Home, EventList, EventDetail("abc123")]
   |> should_round_trip
 }
 

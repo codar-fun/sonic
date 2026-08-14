@@ -19,6 +19,7 @@ import sonic/api/event
 import sonic/api/types.{type ApiError, DecodeError, HttpError, NetworkError}
 import sonic/router
 import sonic/view/layout
+import sonic/view/page/discover
 import sonic/view/page/error_page
 import sonic/view/page/event_detail
 import sonic/view/page/event_list
@@ -90,6 +91,7 @@ pub fn handle(req: Request) -> Promise(Response) {
   let signed_in = req.token != None
 
   case router.parse(req.path), req.method {
+    router.Home, _ -> render(home_page(), signed_in)
     router.EventList, _ -> render(event_list_page(req.token), signed_in)
     router.EventDetail(id), _ ->
       render(event_detail_page(id, req.token), signed_in)
@@ -156,6 +158,11 @@ fn finish_signin(req: Request) -> Promise(Response) {
 }
 
 // --- pages -----------------------------------------------------------------
+
+fn home_page() -> Promise(Result(Element(msg), ApiError)) {
+  use result <- promise.map(event.discover())
+  result |> map_ok(discover.view)
+}
 
 fn event_list_page(
   token: Option(String),

@@ -8,6 +8,7 @@ import gleam/list
 import gleam/string
 
 pub type Route {
+  Home
   EventList
   EventDetail(id: String)
   Signin
@@ -28,7 +29,8 @@ pub fn parse(path: String) -> Route {
     |> list.filter(fn(segment) { segment != "" })
 
   case segments {
-    [] -> EventList
+    [] -> Home
+    ["discover"] -> Home
     ["events"] -> EventList
     ["event", "detail", id] -> EventDetail(id)
     ["events", id] -> EventDetail(id)
@@ -43,7 +45,8 @@ pub fn parse(path: String) -> Route {
 /// Build the canonical path for a route.
 pub fn href(route: Route) -> String {
   case route {
-    EventList -> "/"
+    Home -> "/"
+    EventList -> "/events"
     EventDetail(id) -> "/event/detail/" <> id
     Signin -> "/signin"
     SigninVerify -> "/signin/verify"

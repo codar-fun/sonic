@@ -104,3 +104,17 @@ pub fn unused_decode_import_guard_test() {
 
 @external(javascript, "./fixture_ffi.mjs", "one")
 fn dynamic_one() -> decode.Dynamic
+
+/// A field the API declares non-optional but sometimes sends as explicit
+/// `null`. `decode.optional_field` alone only covers an *absent* key, so this
+/// 502'd the whole home page until the decoders treated null and absent alike.
+/// One event in twenty on the live endpoint carries `require_approval: null`.
+pub fn explicit_null_uses_the_default_test() {
+  let with_nulls =
+    "{\"id\":\"e1\",\"title\":\"T\",\"status\":\"published\",\"visibility\":\"public\",\"start_time\":\"a\",\"end_time\":\"b\",\"require_approval\":null,\"pinned\":null,\"participant_count\":null,\"tags\":null}"
+  let event = with_nulls |> json.parse(decoders.event()) |> should.be_ok
+  event.require_approval |> should.equal(False)
+  event.pinned |> should.equal(False)
+  event.participant_count |> should.equal(0)
+  event.tags |> should.equal([])
+}
