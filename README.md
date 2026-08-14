@@ -56,8 +56,19 @@ Checked by running it, not by reading docs:
 
 ## What has not
 
-- **No client-side hydration yet.** Views are SSR-only yet written so a Lustre
-  app can mount them unchanged; that claim is untested until it is done.
+- **No client-side hydration yet.** Views are SSR-only, written so a Lustre app
+  can mount them unchanged.
+
+  What is now known rather than hoped: Lustre's client runtime *does* adopt
+  server markup instead of discarding it — `runtime.ffi.mjs` builds its initial
+  vdom with `virtualise(this.root)`, i.e. "whatever we can virtualise from the
+  root node". So hydration is a real capability of the framework, not an
+  aspiration.
+
+  What that does **not** establish: that *these* views hydrate cleanly. Reading
+  an implementation proves the mechanism exists; only running it in a browser
+  proves our markup matches what the client would build. Until that test runs,
+  treat shared views as designed-for, not demonstrated.
 - **No authentication.** Every call runs unauthenticated, so only public data
   is reachable. Endpoints needing a token return `HttpError(401, _)` rather
   than an empty list, deliberately: "not signed in" must not look like
