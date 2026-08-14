@@ -1,0 +1,5 @@
+build/
+*.beam
+*.ez
+node_modules/
+.DS_Store
