@@ -1,0 +1,12 @@
+{
+  "name": "sonic-assets",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tailwindcss -c tailwind.config.mjs -i styles/globals.css -o ../priv/static/app.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1",
+    "tailwindcss-animate": "^1.0.7"
+  }
+}

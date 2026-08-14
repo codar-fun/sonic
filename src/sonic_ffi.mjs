@@ -5,6 +5,9 @@
 // Gleam side can pattern-match on failure instead of relying on exceptions.
 
 import { createServer } from "node:http";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { Ok, Error as GleamError, List } from "./gleam.mjs";
 
 // Gleam represents #(a, b) as a JS array subclass; a plain array is the
@@ -40,10 +43,58 @@ export function host() {
 // container-internal loopback bind yields a healthy container, a live router,
 // and a uniform 502. Not exposing a port on the *host* is a separate concern
 // from what the process listens on *inside* the container.
+// Static assets are served here rather than in Gleam: reading bytes off disk
+// and setting cache headers is a platform concern, and routing it through the
+// Gleam handler would mean carrying binary payloads through a String type.
+// Resolved from the working directory, not from import.meta.url: the compiled
+// module lives under build/dev/javascript/sonic/, so a path relative to itself
+// would point inside the build tree. Both `gleam run` from the project root and
+// the container (WORKDIR /app) put priv/ where this expects it.
+const STATIC_ROOT = pathToFileURL(join(process.cwd(), "priv", "static") + "/");
+const CONTENT_TYPES = {
+  ".css": "text/css; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".woff2": "font/woff2",
+  ".woff": "font/woff",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".ico": "image/x-icon",
+};
+
+function serveStatic(req, res) {
+  const name = (req.url ?? "").slice("/static/".length).split("?")[0];
+  // Reject anything that could climb out of the asset directory.
+  if (!name || name.includes("..") || name.startsWith("/")) return false;
+
+  const file = new URL(name, STATIC_ROOT);
+  if (!file.pathname.startsWith(STATIC_ROOT.pathname)) return false;
+
+  let body;
+  try {
+    body = readFileSync(file);
+  } catch {
+    return false;
+  }
+
+  const ext = name.slice(name.lastIndexOf("."));
+  res.writeHead(200, {
+    "content-type": CONTENT_TYPES[ext] ?? "application/octet-stream",
+    // Assets are content-addressed by the deploy (a new image means new
+    // bytes), so they can be cached hard.
+    "cache-control": "public, max-age=31536000, immutable",
+  });
+  res.end(body);
+  return true;
+}
+
 export function serve(port, handler) {
   const bind = host();
   const server = createServer(async (req, res) => {
     try {
+      if ((req.url ?? "").startsWith("/static/") && serveStatic(req, res)) {
+        return;
+      }
       const body = await readBody(req);
       const [status, html, location, setCookie] = await handler(
         req.method ?? "GET",
