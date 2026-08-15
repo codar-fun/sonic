@@ -26,7 +26,12 @@ pub fn detail(
   )
 }
 
-/// `GET /events?group_handle=…` — that group's events.
+/// `GET /events?group_id=…` — that group's events.
+///
+/// The parameter is `group_id`, and it accepts a handle as well as a TSID.
+/// `group_handle` is *not* a filter the API knows: it is accepted, ignored,
+/// and answered with every event on the platform — which renders as a
+/// plausible-looking page belonging to the wrong group.
 pub fn events(
   handle handle: String,
   page page: Int,
@@ -36,7 +41,7 @@ pub fn events(
   client.get(
     path: "/events",
     query: [
-      #("group_handle", Some(handle)),
+      #("group_id", Some(handle)),
       #("page", Some(int.to_string(page))),
       #("limit", Some(int.to_string(limit))),
     ],
