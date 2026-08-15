@@ -141,9 +141,21 @@ fn tool_bar(
         // too (`start_date`), so the arrows work with no runtime and the
         // resulting view is shareable.
         html.div([attribute.class("flex-row-item-center")], [
-          step_link(group, layout, schedule_step(zone, view_key(layout), at, -1), "uil-angle-left"),
-          step_link(group, layout, "", "uil-circle"),
-          step_link(group, layout, schedule_step(zone, view_key(layout), at, 1), "uil-angle-right"),
+          step_link(
+            group,
+            layout,
+            schedule_step(zone, view_key(layout), at, -1),
+            arrow("uil-angle-left"),
+            "w-12",
+          ),
+          step_link(group, layout, "", today_dot(), "w-8"),
+          step_link(
+            group,
+            layout,
+            schedule_step(zone, view_key(layout), at, 1),
+            arrow("uil-angle-right"),
+            "w-12",
+          ),
         ]),
       ]),
       html.div(
@@ -180,7 +192,8 @@ fn step_link(
   group: GroupDetail,
   layout: Layout,
   date: String,
-  glyph: String,
+  glyph: Element(msg),
+  width: String,
 ) -> Element(msg) {
   let base = "/event/" <> handle(group) <> "/schedule/" <> view_key(layout)
   html.a(
@@ -190,10 +203,28 @@ fn step_link(
         value -> base <> "?start_date=" <> value
       }),
       attribute.class(
-        "leading-7 h-7 rounded-lg active:scale-95 cursor-pointer hover:bg-gray-200 text-3xl w-12 flex flex-row justify-center items-center",
+        "leading-7 h-7 rounded-lg active:scale-95 cursor-pointer hover:bg-gray-200 text-3xl "
+        <> width
+        <> " flex flex-row justify-center items-center",
       ),
     ],
-    [html.i([attribute.class(glyph <> " leading-7")], [])],
+    [glyph],
+  )
+}
+
+fn arrow(glyph: String) -> Element(msg) {
+  html.i([attribute.class(glyph <> " leading-7")], [])
+}
+
+/// A 3px dot, not an icon-font circle: the glyph renders at the surrounding
+/// 3xl size and reads as a large ring rather than the reference's small mark.
+fn today_dot() -> Element(msg) {
+  element.unsafe_raw_html(
+    "",
+    "span",
+    [],
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"28\" height=\"40\" viewBox=\"0 0 28 40\" fill=\"none\">"
+      <> "<circle cx=\"14\" cy=\"20\" r=\"3\" fill=\"#272928\"></circle></svg>",
   )
 }
 
