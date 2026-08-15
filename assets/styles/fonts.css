@@ -125,6 +125,6 @@
 }
 :root {
   --font-icon: "unicons";
-  --font-media-icons: "media_icons";
+  --media-icon: "media_icons";
   --font-editor-icons: "editor_icons";
 }

@@ -18,6 +18,7 @@ import lustre/element/html
 import sonic/api/types.{type Discover, type Group, type PopupCity}
 import sonic/view/community_list
 import sonic/view/event_time
+import sonic/view/footer
 
 pub fn view(data: Discover) -> Element(msg) {
   let featured = list.filter(data.popup_cities, is_featured)
@@ -27,6 +28,7 @@ pub fn view(data: Discover) -> Element(msg) {
     create_group_panel(),
     popup_cities(data.popup_cities),
     communities(data),
+    footer.view(),
   ])
 }
 
