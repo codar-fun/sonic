@@ -18,6 +18,21 @@ export default {
   content: ["../src/**/*.gleam"],
   theme: {
     extend: {
+      // Poppins is the reference site's typeface. Setting it here rather than
+      // in a stylesheet matters: Tailwind's preflight sets html { font-family }
+      // itself, so a plain CSS rule imported before @tailwind base loses to it
+      // — which is why the whole site was still rendering in system sans.
+      fontFamily: {
+        sans: [
+          "Poppins",
+          "ui-sans-serif",
+          "system-ui",
+          "-apple-system",
+          "Segoe UI",
+          "Roboto",
+          "sans-serif",
+        ],
+      },
       screens: {
         xs: { min: "374px" },
       },
