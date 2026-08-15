@@ -11,7 +11,11 @@ import tailwindcssAnimate from "tailwindcss-animate";
 
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./src/**/*.gleam"],
+  // Paths are resolved from this file's directory, so the project sources are
+  // one level up. Pointing at "./src" silently matched nothing and produced a
+  // stylesheet with none of the app's classes in it — the page rendered
+  // unstyled while every build reported success.
+  content: ["../src/**/*.gleam"],
   theme: {
     extend: {
       screens: {

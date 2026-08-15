@@ -1,0 +1,30 @@
+/* Icon fonts.
+ *
+ * seastar-app declares these through next/font/local, which generates the
+ * @font-face rules and the --font-icon variable at build time. There is no
+ * Next here, so the same rules are written out directly — the CSS that
+ * consumes them (font_icons.css) is copied verbatim and expects exactly these
+ * variable names.
+ *
+ * The 21 unicons files are one font split into unicode ranges; the browser
+ * fetches only the ranges a page actually uses. */
+@font-face {
+  font-family: "unicons";
+  src: url("/static/fonts/unicon-line/unicons-0.woff") format("woff");
+  font-display: swap;
+}
+@font-face {
+  font-family: "media_icons";
+  src: url("/static/fonts/media_icons.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "editor_icons";
+  src: url("/static/fonts/editor_icons.woff") format("woff");
+  font-display: swap;
+}
+:root {
+  --font-icon: "unicons";
+  --font-media-icons: "media_icons";
+  --font-editor-icons: "editor_icons";
+}
