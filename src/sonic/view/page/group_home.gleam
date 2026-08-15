@@ -19,6 +19,7 @@ import lustre/element.{type Element}
 import lustre/element/html
 import sonic/api/types.{type Event, type GroupDetail, type Page}
 import sonic/view/event_card
+import sonic/view/filter_panel
 import sonic/view/image
 
 pub fn view(
@@ -133,6 +134,7 @@ fn sidebar(group: GroupDetail) -> Element(msg) {
     ]),
     about(group.bio),
     participate(),
+    filter_panel.view(),
   ])
 }
 
