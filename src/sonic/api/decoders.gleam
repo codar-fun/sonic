@@ -11,11 +11,11 @@ import gleam/dynamic/decode.{type Decoder}
 import gleam/option.{type Option, None}
 import sonic/api/types.{
   type Badge, type BadgeClass, type Discover, type Event, type Group,
-  type GroupDetail, type Meta, type Page, type Place, type PopupCity,
-  type Profile, type SearchResults, type Track, type UserProfile, type Venue,
-  type VenueDetail, Badge, BadgeClass, Discover, Event, Group, GroupDetail, Meta,
-  Page, Place, PopupCity, Profile, SearchResults, Track, UserProfile, Venue,
-  VenueDetail,
+  type GroupDetail, type Membership, type Meta, type Page, type Place,
+  type PopupCity, type Profile, type SearchResults, type Track, type TrackDetail,
+  type UserProfile, type Venue, type VenueDetail, Badge, BadgeClass, Discover,
+  Event, Group, GroupDetail, Membership, Meta, Page, Place, PopupCity, Profile,
+  SearchResults, Track, TrackDetail, UserProfile, Venue, VenueDetail,
 }
 
 /// `optional_field` with a `None` default: tolerates both `null` and absent.
@@ -306,4 +306,20 @@ pub fn search_results() -> Decoder(SearchResults) {
   use users <- opt_or("users", [], decode.list(user_profile()))
   use badge_classes <- opt_or("badge_classes", [], decode.list(badge_class()))
   decode.success(SearchResults(events:, groups:, users:, badge_classes:))
+}
+
+pub fn membership() -> Decoder(Membership) {
+  use id <- decode.field("id", decode.string)
+  use role <- opt("role", decode.string)
+  use user <- opt("user", profile())
+  decode.success(Membership(id:, role:, user:))
+}
+
+pub fn track_detail() -> Decoder(TrackDetail) {
+  use id <- decode.field("id", decode.string)
+  use title <- opt("title", decode.string)
+  use description <- opt("description", decode.string)
+  use start_date <- opt("start_date", decode.string)
+  use end_date <- opt("end_date", decode.string)
+  decode.success(TrackDetail(id:, title:, description:, start_date:, end_date:))
 }

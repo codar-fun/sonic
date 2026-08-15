@@ -9,7 +9,9 @@ import gleam/javascript/promise.{type Promise}
 import gleam/option.{Some}
 import sonic/api/client.{type ApiResult, type Auth}
 import sonic/api/decoders
-import sonic/api/types.{type Event, type GroupDetail, type Page}
+import sonic/api/types.{
+  type Event, type GroupDetail, type Membership, type Page, type TrackDetail,
+}
 
 /// `GET /groups/:handle` — one group's full record.
 pub fn detail(
@@ -60,5 +62,33 @@ pub fn directory(
     ],
     auth: auth,
     expect: decoders.page(of: decoders.group_detail()),
+  )
+}
+
+/// `GET /groups/:id/memberships` — who belongs, and in what role.
+///
+/// Keyed by id rather than handle, unlike the other group calls.
+pub fn memberships(
+  group_id group_id: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(Page(Membership))) {
+  client.get(
+    path: "/groups/" <> group_id <> "/memberships",
+    query: [#("limit", Some(int.to_string(200)))],
+    auth: auth,
+    expect: decoders.page(of: decoders.membership()),
+  )
+}
+
+/// `GET /tracks?group_id=…`
+pub fn tracks(
+  group_id group_id: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(Page(TrackDetail))) {
+  client.get(
+    path: "/tracks",
+    query: [#("group_id", Some(group_id)), #("limit", Some(int.to_string(100)))],
+    auth: auth,
+    expect: decoders.page(of: decoders.track_detail()),
   )
 }

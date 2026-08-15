@@ -32,6 +32,7 @@ import sonic/view/page/error_page
 import sonic/view/page/event_detail
 import sonic/view/page/event_list
 import sonic/view/page/group_home
+import sonic/view/page/group_people
 import sonic/view/page/profile
 import sonic/view/page/schedule
 import sonic/view/page/search
@@ -123,6 +124,28 @@ pub fn handle(req: Request) -> Promise(Response) {
       render(schedule_page(handle, req.token, schedule.venue_view), signed_in)
     router.Venues(handle), _ ->
       render(venues_page(handle, req.token), signed_in)
+    router.Members(handle), _ ->
+      render(
+        group_scoped(handle, req.token, fn(found, token) {
+          use result <- promise.map(group.memberships(
+            group_id: found.id,
+            auth: token,
+          ))
+          result |> map_ok(fn(page) { group_people.members(found, page) })
+        }),
+        signed_in,
+      )
+    router.Tracks(handle), _ ->
+      render(
+        group_scoped(handle, req.token, fn(found, token) {
+          use result <- promise.map(group.tracks(
+            group_id: found.id,
+            auth: token,
+          ))
+          result |> map_ok(fn(page) { group_people.tracks(found, page) })
+        }),
+        signed_in,
+      )
     router.Profile(handle), _ ->
       render(profile_page(handle, req.token), signed_in)
 
@@ -290,24 +313,34 @@ fn profile_page(
   result |> map_ok(profile.view)
 }
 
-/// Venues are addressed by the group's *id*, not its handle, so the group has
-/// to be resolved first — these two cannot run concurrently.
-fn venues_page(
+/// Sub-resources are addressed by the group's *id*, not its handle, so the
+/// group must resolve before they can be asked for. That sequencing is shared
+/// by every group sub-page, so it lives here once.
+fn group_scoped(
   handle: String,
   token: Option(String),
+  then: fn(GroupDetail, Option(String)) ->
+    Promise(Result(Element(msg), ApiError)),
 ) -> Promise(Result(Element(msg), ApiError)) {
   use group_result <- promise.await(group.detail(handle: handle, auth: token))
 
   case group_result {
     Error(err) -> promise.resolve(Error(err))
-    Ok(found) -> {
-      use venues_result <- promise.map(profile_api.venues(
-        group_id: found.id,
-        auth: token,
-      ))
-      venues_result |> map_ok(fn(page) { venues.view(found, page) })
-    }
+    Ok(found) -> then(found, token)
   }
+}
+
+fn venues_page(
+  handle: String,
+  token: Option(String),
+) -> Promise(Result(Element(msg), ApiError)) {
+  group_scoped(handle, token, fn(found, token) {
+    use venues_result <- promise.map(profile_api.venues(
+      group_id: found.id,
+      auth: token,
+    ))
+    venues_result |> map_ok(fn(page) { venues.view(found, page) })
+  })
 }
 
 fn search_page(req: Request) -> Promise(Result(Element(msg), ApiError)) {

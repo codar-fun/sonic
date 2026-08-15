@@ -19,6 +19,8 @@ pub type Route {
   ScheduleCompact(handle: String)
   ScheduleVenue(handle: String)
   Venues(handle: String)
+  Members(handle: String)
+  Tracks(handle: String)
   Profile(handle: String)
   Search
   Signin
@@ -51,6 +53,8 @@ pub fn parse(path: String) -> Route {
     ["event", handle] -> GroupHome(handle)
     ["event", handle, "schedule"] -> Schedule(handle)
     ["event", handle, "venues"] -> Venues(handle)
+    ["event", handle, "members"] -> Members(handle)
+    ["event", handle, "tracks"] -> Tracks(handle)
     ["profile", handle] -> Profile(handle)
     ["event", handle, "schedule", "list"] -> Schedule(handle)
     ["event", handle, "schedule", "compact"] -> ScheduleCompact(handle)
@@ -82,6 +86,8 @@ pub fn href(route: Route) -> String {
     ScheduleCompact(handle) -> "/event/" <> handle <> "/schedule/compact"
     ScheduleVenue(handle) -> "/event/" <> handle <> "/schedule/venue"
     Venues(handle) -> "/event/" <> handle <> "/venues"
+    Members(handle) -> "/event/" <> handle <> "/members"
+    Tracks(handle) -> "/event/" <> handle <> "/tracks"
     Profile(handle) -> "/profile/" <> handle
     Search -> "/search"
     Signin -> "/signin"

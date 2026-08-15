@@ -225,3 +225,20 @@ pub type SearchResults {
     badge_classes: List(BadgeClass),
   )
 }
+
+/// Someone's membership of a group, with the role that governs what they may
+/// do there.
+pub type Membership {
+  Membership(id: String, role: Option(String), user: Option(Profile))
+}
+
+/// A programme track, with the dates it runs.
+pub type TrackDetail {
+  TrackDetail(
+    id: String,
+    title: Option(String),
+    description: Option(String),
+    start_date: Option(String),
+    end_date: Option(String),
+  )
+}
