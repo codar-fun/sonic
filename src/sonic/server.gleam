@@ -165,7 +165,7 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.Profile(handle), _ ->
       render(profile_page(handle, req.token), signed_in)
 
-    router.Signin, Get -> page(200, signin.ask_email(None), signed_in)
+    router.Signin, Get -> auth_page(200, signin.ask_email(None))
     router.Signin, Post -> start_signin(req)
     router.SigninVerify, Post -> finish_signin(req)
     router.SigninVerify, Get -> promise.resolve(Redirect("/signin", None))
@@ -186,13 +186,13 @@ pub fn handle(req: Request) -> Promise(Response) {
 
 fn start_signin(req: Request) -> Promise(Response) {
   case request.field(req, "email") {
-    None -> page(400, signin.ask_email(Some("Enter an email address.")), False)
+    None -> auth_page(400, signin.ask_email(Some("Enter an email address.")))
     Some(email) -> {
       use result <- promise.await(auth.request_email_code(email))
       case result {
-        Ok(_) -> page(200, signin.ask_code(email, None), False)
+        Ok(_) -> auth_page(200, signin.ask_code(email, None))
         Error(err) ->
-          page(status_for(err), signin.ask_email(Some(explain(err).1)), False)
+          auth_page(status_for(err), signin.ask_email(Some(explain(err).1)))
       }
     }
   }
@@ -221,7 +221,7 @@ fn finish_signin(req: Request) -> Promise(Response) {
       }
     }
     Some(email), None ->
-      page(400, signin.ask_code(email, Some("Enter the code.")), False)
+      auth_page(400, signin.ask_code(email, Some("Enter the code.")))
     None, _ -> promise.resolve(Redirect("/signin", None))
   }
 }
@@ -420,6 +420,16 @@ fn render(
 
 fn page(status: Int, body: Element(msg), signed_in: Bool) -> Promise(Response) {
   promise.resolve(Page(status, document(body, signed_in)))
+}
+
+/// Auth pages use the stripped header — showing Discover, search and a Sign In
+/// button on the sign-in page itself would be odd, and upstream drops them.
+fn auth_page(status: Int, body: Element(msg)) -> Promise(Response) {
+  promise.resolve(Page(
+    status,
+    "<!doctype html>"
+      <> element.to_string(layout.auth_document(body, layout.site_meta())),
+  ))
 }
 
 /// What the visitor is told, and under which status.

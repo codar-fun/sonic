@@ -58,10 +58,60 @@ pub fn document(body: Element(msg), signed_in: Bool) -> Element(msg) {
   document_with(body, signed_in, site_meta())
 }
 
+/// The auth pages carry a stripped header — logo and language only. Showing
+/// Discover, search and a Sign In button on the sign-in page itself would be
+/// odd, and upstream drops them for exactly that reason.
+pub fn auth_document(body: Element(msg), meta: Meta) -> Element(msg) {
+  shell(body, meta, minimal_header())
+}
+
+fn minimal_header() -> Element(msg) {
+  html.header(
+    [
+      attribute.class(
+        "w-full h-[48px] shadow bg-[var(--background)] sticky top-0 z-[999]",
+      ),
+    ],
+    [
+      html.div(
+        [
+          attribute.class(
+            "page-width w-full flex-row-item-center justify-between items-center h-[48px]",
+          ),
+        ],
+        [
+          html.a([attribute.href("/")], [
+            html.img([
+              attribute.src("/static/images/logo_horizontal.svg"),
+              attribute.width(102),
+              attribute.height(32),
+              attribute.alt("Social Layer"),
+            ]),
+          ]),
+          html.div(
+            [attribute.class("flex-row-item-center text-xs cursor-pointer")],
+            [
+              language_switcher(),
+            ],
+          ),
+        ],
+      ),
+    ],
+  )
+}
+
 pub fn document_with(
   body: Element(msg),
   signed_in: Bool,
   meta: Meta,
+) -> Element(msg) {
+  shell(body, meta, header(signed_in))
+}
+
+fn shell(
+  body: Element(msg),
+  meta: Meta,
+  page_header: Element(msg),
 ) -> Element(msg) {
   html.html([attribute("lang", "en")], [
     html.head([], [
@@ -103,7 +153,7 @@ pub fn document_with(
     ]),
     html.body([attribute.class("antialiased")], [
       html.div([attribute.class("min-h-[100svh]")], [
-        header(signed_in),
+        page_header,
         html.div([attribute.class("relative")], [body]),
       ]),
     ]),
