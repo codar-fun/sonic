@@ -12,7 +12,7 @@
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
-import lustre/attribute
+import lustre/attribute.{attribute}
 import lustre/element.{type Element}
 import lustre/element/html
 import sonic/api/types.{type Discover, type Group, type PopupCity}
@@ -63,41 +63,39 @@ fn feature_slide(city: PopupCity) -> Element(msg) {
     [
       attribute.href("/event/" <> handle(city)),
       attribute.class("relative block h-[300px]"),
-      attribute.styles([
-        #(
-          "background-image",
-          "url("
-            <> option_text(
-            first_present([city.banner_image_url, city.image_url]),
-          )
-            <> ")",
-        ),
-        #("background-size", "cover"),
-        #("background-position", "center"),
-        #("flex", "0 0 100%"),
-        #("padding-left", "1rem"),
-      ]),
+      attribute.styles([#("flex", "0 0 100%"), #("padding-left", "1rem")]),
     ],
     [
+      // An <img>, not a background: upstream serves these through an image CDN
+      // and sets fetchpriority/eager so the banner is not a late paint.
+      case first_present([city.banner_image_url, city.image_url]) {
+        Some(src) ->
+          html.img([
+            attribute.src(src),
+            attribute.alt(option_text(city.name)),
+            attribute.class("w-full h-full object-cover"),
+            attribute("fetchpriority", "high"),
+            attribute("loading", "eager"),
+            attribute("decoding", "async"),
+          ])
+        None -> html.div([attribute.class("w-full h-full bg-gray-100")], [])
+      },
+      // Upstream renders this caption and hides it (`hidden`), so the banner
+      // shows artwork alone. Kept, with the class, rather than dropped — the
+      // markup is theirs and a later variant may reveal it.
       html.div(
         [
           attribute.class(
-            "absolute bottom-0 left-0 right-0 px-6 pb-6 text-white",
+            "hidden absolute bottom-0 left-0 right-0 sm:pt-[140px] pt-[100px] px-6 h-[250px]",
           ),
-          attribute.styles([
-            #("background", "linear-gradient(transparent, rgba(0,0,0,0.65))"),
-          ]),
         ],
         [
           html.div(
             [attribute.class("flex sm:flex-row flex-col sm:gap-4 mb-2")],
             [
-              html.div(
-                [attribute.class("webkit-box-clamp-1 text-lg font-semibold")],
-                [
-                  element.text(display_name(city.nickname, city.name, city.id)),
-                ],
-              ),
+              html.div([attribute.class("webkit-box-clamp-1 text-sm")], [
+                element.text(display_name(city.nickname, city.name, city.id)),
+              ]),
             ],
           ),
           meta_line(dates(city)),

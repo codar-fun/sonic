@@ -54,7 +54,11 @@ fn trigger(open: Bool, label: String, on_toggle: Option(msg)) -> Element(msg) {
   html.button(
     [
       attribute.type_("button"),
-      attribute.class("cursor-pointer text-xs font-semibold"),
+      // Upstream's signed-out control is an anchor styled exactly like this,
+      // with a wallet glyph ahead of the label.
+      attribute.class(
+        "cursor-pointer flex-row-item-center btn btn-ghost btn-sm text-xs font-normal px-1",
+      ),
       attribute.attribute("aria-haspopup", "menu"),
       attribute.attribute("aria-expanded", case open {
         True -> "true"
@@ -65,7 +69,10 @@ fn trigger(open: Bool, label: String, on_toggle: Option(msg)) -> Element(msg) {
         None -> []
       }
     ],
-    [element.text(label)],
+    [
+      html.i([attribute.class("uil-wallet text-base mr-1")], []),
+      html.span([], [element.text(label)]),
+    ],
   )
 }
 

@@ -122,25 +122,35 @@ fn nav(signed_in: Bool) -> Element(msg) {
 
 fn account(signed_in: Bool) -> Element(msg) {
   html.div([attribute.class("flex-row-item-center text-xs relative")], [
-    // A plain GET form, so search works without JavaScript exactly as the
-    // rest of the site does.
-    html.form(
+    // Upstream collapses the search to an icon and expands it on click; the
+    // collapsed width is set inline there too. The form still submits with
+    // Enter, so search works before the runtime loads.
+    html.div(
       [
-        attribute.method("get"),
-        attribute.action("/search"),
-        attribute.class("flex-row-item-center"),
+        attribute.id("header-search"),
+        attribute.class("z-10 right-0 bg-background"),
+        attribute.styles([#("width", "14px")]),
       ],
       [
-        html.input([
-          attribute.type_("search"),
-          attribute.name("keyword"),
-          attribute.placeholder("Search"),
-          attribute.class(
-            "text-xs px-2 py-1 rounded border border-gray-200 w-[120px] sm:w-[160px]",
-          ),
-        ]),
+        html.form(
+          [
+            attribute.method("get"),
+            attribute.action("/search"),
+            attribute.class("flex-row-item-center"),
+          ],
+          [
+            html.i([attribute.class("uil-search text-sm cursor-pointer")], []),
+            html.input([
+              attribute.type_("search"),
+              attribute.name("keyword"),
+              attribute.class("hidden"),
+            ]),
+          ],
+        ),
       ],
     ),
+    html.span([attribute.class("w-[0.5px] h-3 bg-gray-400 mx-2")], []),
+    language_switcher(),
     html.span([attribute.class("w-[0.5px] h-3 bg-gray-400 mx-2")], []),
     // Rendered server-side in its closed state and hydrated in place, so the
     // menu is usable markup before the bundle arrives rather than a hole. The
@@ -164,6 +174,18 @@ fn account(signed_in: Bool) -> Element(msg) {
         ),
       ],
     ),
+  ])
+}
+
+/// The language switcher. Only English exists here so far — the original ships
+/// a dictionary per language and translating the app is its own piece of work.
+/// The control is rendered so the header matches and the gap is visible rather
+/// than silently absent.
+fn language_switcher() -> Element(msg) {
+  html.div([attribute.class("cursor-pointer")], [
+    html.div([attribute.class("dropwdown relative")], [
+      html.div([attribute.class("$dropdown-trigger")], [element.text("EN")]),
+    ]),
   ])
 }
 
