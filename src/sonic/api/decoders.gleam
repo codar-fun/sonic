@@ -234,6 +234,7 @@ pub fn group_detail() -> Decoder(GroupDetail) {
     [],
     decode.list(decode.string),
   )
+  use venues <- opt_or("venues", [], decode.list(venue_detail()))
   use start_date <- opt("start_date", decode.string)
   use end_date <- opt("end_date", decode.string)
   use events_count <- opt_or("events_count", 0, decode.int)
@@ -249,6 +250,7 @@ pub fn group_detail() -> Decoder(GroupDetail) {
     location:,
     timezone:,
     event_tag_list:,
+    venues:,
     start_date:,
     end_date:,
     events_count:,

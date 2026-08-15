@@ -196,7 +196,12 @@ pub fn handle(req: Request) -> Promise(Response) {
         signed_in,
       )
     router.Venues(handle), _ ->
-      render(venues_page(handle, req.token), signed_in)
+      render(
+        group_scoped(handle, req.token, fn(found, _token) {
+          promise.resolve(Ok(venues.view(found)))
+        }),
+        signed_in,
+      )
     router.Members(handle), _ ->
       render(
         group_scoped(handle, req.token, fn(found, token) {
@@ -461,19 +466,6 @@ fn group_scoped(
     Error(err) -> promise.resolve(Error(err))
     Ok(found) -> then(found, token)
   }
-}
-
-fn venues_page(
-  handle: String,
-  token: Option(String),
-) -> Promise(Result(Element(msg), ApiError)) {
-  group_scoped(handle, token, fn(found, token) {
-    use venues_result <- promise.map(profile_api.venues(
-      group_id: found.id,
-      auth: token,
-    ))
-    venues_result |> map_ok(fn(page) { venues.view(found, page) })
-  })
 }
 
 fn search_page(req: Request) -> Promise(Result(Element(msg), ApiError)) {

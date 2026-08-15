@@ -6,14 +6,14 @@ import gleam/option.{type Option, Some}
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
-import sonic/api/types.{type GroupDetail, type Page, type VenueDetail}
+import sonic/api/types.{type GroupDetail, type VenueDetail}
 
-pub fn view(group: GroupDetail, venues: Page(VenueDetail)) -> Element(msg) {
+pub fn view(group: GroupDetail) -> Element(msg) {
   html.div([attribute.class("page-width min-h-[100svh] !pt-4 !pb-12")], [
     html.div([attribute.class("text-lg font-semibold mb-4")], [
       element.text(group_name(group) <> " · Venues"),
     ]),
-    case venues.data {
+    case group.venues {
       [] ->
         html.div([attribute.class("text-center text-gray-400 py-10")], [
           element.text("No venues yet."),

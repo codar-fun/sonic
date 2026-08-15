@@ -182,6 +182,10 @@ pub type GroupDetail {
     /// The schedule's filter is built from this rather than from whatever
     /// happens to appear in the current week.
     event_tag_list: List(String),
+    /// The group's venues arrive inside the group itself. There is no public
+    /// `/venues?group_id=` — that endpoint is 401 for anonymous callers, and
+    /// asking it turned this page into a 403 for everyone signed out.
+    venues: List(VenueDetail),
     start_date: Option(String),
     end_date: Option(String),
     events_count: Int,
