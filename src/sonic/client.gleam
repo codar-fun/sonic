@@ -20,6 +20,10 @@ pub fn main() -> Nil {
   // ones are not an error: pages carry different regions, and a page without a
   // menu should not log a failure.
   mount_menu()
+  // Not a Lustre app: the share buttons act on the page and hold no state, and
+  // running a runtime over the card would re-render the very thing the page
+  // exists to have screenshotted.
+  wire_share_buttons()
   Nil
 }
 
@@ -66,3 +70,6 @@ fn view(model: Model) -> Element(Msg) {
 
 @external(javascript, "../sonic_client_ffi.mjs", "signed_in_flag")
 fn signed_in_flag() -> Bool
+
+@external(javascript, "../sonic_client_ffi.mjs", "wire_share_buttons")
+fn wire_share_buttons() -> Nil

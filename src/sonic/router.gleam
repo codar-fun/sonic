@@ -11,6 +11,7 @@ pub type Route {
   Home
   EventList
   EventDetail(id: String)
+  EventShare(id: String)
   GroupHome(handle: String)
   Communities
   BadgeDetail(id: String)
@@ -45,11 +46,15 @@ pub fn parse(path: String) -> Route {
     ["discover"] -> Home
     ["events"] -> EventList
     ["event", "detail", id] -> EventDetail(id)
+    ["event", "share", id] -> EventShare(id)
     // `detail` is a path segment, not a group handle. Without this guard
     // /event/detail (the id-less form) would resolve to a group named
     // "detail" and 404 from the API instead of from here — a confusing way to
     // report a malformed URL.
     ["event", "detail"] -> NotFound
+    // Same guard for `share`: without it /event/share resolves to a group
+    // literally named "share".
+    ["event", "share"] -> NotFound
     ["event", handle] -> GroupHome(handle)
     ["event", handle, "schedule"] -> Schedule(handle)
     ["event", handle, "venues"] -> Venues(handle)
@@ -78,6 +83,7 @@ pub fn href(route: Route) -> String {
     Home -> "/"
     EventList -> "/events"
     EventDetail(id) -> "/event/detail/" <> id
+    EventShare(id) -> "/event/share/" <> id
     GroupHome(handle) -> "/event/" <> handle
     Communities -> "/communities"
     BadgeDetail(id) -> "/badge/" <> id

@@ -118,3 +118,16 @@ pub fn explicit_null_uses_the_default_test() {
   event.participant_count |> should.equal(0)
   event.tags |> should.equal([])
 }
+
+/// The venue's name arrives as `name`, not `title`. Decoding `title` returned
+/// None for every place in the system, so cards and the share page printed a
+/// bare street address with no venue above it — a plausible-looking result
+/// that was missing half the answer.
+pub fn place_name_decodes_test() {
+  let payload =
+    "{\"id\":\"e1\",\"title\":\"T\",\"status\":\"published\",\"visibility\":\"public\",\"start_time\":\"a\",\"end_time\":\"b\",\"place\":{\"id\":\"p1\",\"name\":\"4seas Nimman\",\"address\":\"2 20 Nimmana Haeminda Rd\"}}"
+  let event = payload |> json.parse(decoders.event()) |> should.be_ok
+  let place = event.place |> should.be_some
+  place.title |> should.equal(Some("4seas Nimman"))
+  place.address |> should.equal(Some("2 20 Nimmana Haeminda Rd"))
+}

@@ -103,11 +103,51 @@ function serveFrom(root, name, res) {
   return true;
 }
 
+// The image CDN answers without CORS headers, so a canvas that has drawn one
+// of its images is tainted and cannot be exported. The share card's "Save
+// Image" needs exactly that, so its cover is fetched through here instead,
+// making it same-origin.
+//
+// Only this one host, and only its resizer path: an open proxy would let a
+// caller aim this server at anything it can reach, including addresses only
+// reachable from inside the network.
+const IMAGE_PROXY_PREFIX = "/proxy/image/";
+const IMAGE_PROXY_ORIGIN = "https://datastore.sola.day";
+
+async function proxyImage(req, res) {
+  const path = (req.url ?? "").slice(IMAGE_PROXY_PREFIX.length);
+  if (!path || path.includes("..") || path.startsWith("/")) {
+    res.writeHead(400).end("bad path");
+    return;
+  }
+  try {
+    const upstream = await fetch(`${IMAGE_PROXY_ORIGIN}/${path}`);
+    if (!upstream.ok) {
+      res.writeHead(upstream.status).end("");
+      return;
+    }
+    const body = Buffer.from(await upstream.arrayBuffer());
+    res.writeHead(200, {
+      "content-type": upstream.headers.get("content-type") ?? "image/jpeg",
+      "cache-control": "public, max-age=86400",
+      // The point of the proxy: same-origin bytes the canvas can export.
+      "access-control-allow-origin": "*",
+    });
+    res.end(body);
+  } catch {
+    res.writeHead(502).end("upstream unavailable");
+  }
+}
+
 export function serve(port, handler) {
   const bind = host();
   const server = createServer(async (req, res) => {
     try {
       if ((req.url ?? "").startsWith("/static/") && serveStatic(req, res)) {
+        return;
+      }
+      if ((req.url ?? "").startsWith(IMAGE_PROXY_PREFIX)) {
+        await proxyImage(req, res);
         return;
       }
       const body = await readBody(req);
@@ -192,6 +232,24 @@ export function format_in_zone(iso, zone, pattern) {
   try {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return "";
+    // "2024-12-06 14:30" — the share card's format. Composed from parts rather
+    // than from a locale, because a locale that happens to print ISO-ish dates
+    // today is not a promise that it will tomorrow.
+    if (pattern === "stamp") {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: zone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).formatToParts(d);
+      const at = (type) => parts.find((p) => p.type === type)?.value ?? "";
+      // hourCycle h23 still prints "24" for midnight in some ICU versions.
+      const hour = at("hour") === "24" ? "00" : at("hour");
+      return `${at("year")}-${at("month")}-${at("day")} ${hour}:${at("minute")}`;
+    }
     const opts =
       pattern === "date"
         ? { weekday: "short", year: "numeric", month: "short", day: "2-digit" }
@@ -232,6 +290,38 @@ const md = new MarkdownIt({
 export function render_markdown(source) {
   try {
     return md.render(source);
+  } catch {
+    return "";
+  }
+}
+
+// QR codes for the share card. Built synchronously from the low-level API:
+// QRCode.toString returns a promise, and awaiting it here would mean threading
+// async through every view function for one image. Rendered server-side so the
+// card is complete in the HTML — this page exists to be screenshotted, and a
+// code that appears only after client JS ran would be missing from the shot.
+import QRCode from "qrcode";
+
+export function render_qr(text) {
+  try {
+    const qr = QRCode.create(text, { errorCorrectionLevel: "M" });
+    const n = qr.modules.size;
+    const data = qr.modules.data;
+    let path = "";
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; x++) {
+        if (data[y * n + x]) path += `M${x} ${y}h1v1h-1z`;
+      }
+    }
+    return (
+      // Sized by its container rather than by fixed attributes: the card gives
+      // it a 63px box, and a 120px SVG inside that overflowed to the right —
+      // visible on the page and clipped out of the exported image.
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n} ${n}" ` +
+      `width="100%" height="100%" shape-rendering="crispEdges">` +
+      `<rect width="${n}" height="${n}" fill="#fff"/>` +
+      `<path d="${path}" fill="#000"/></svg>`
+    );
   } catch {
     return "";
   }

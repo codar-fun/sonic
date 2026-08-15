@@ -34,6 +34,19 @@ pub fn avatar(url: String) -> String {
   transform(url, "format=auto,quality=85,width=28,height=28,fit=cover")
 }
 
+/// Route a datastore URL back through this server.
+///
+/// Only the share card uses this. The CDN answers without CORS headers, so a
+/// canvas that has drawn one of its images cannot be exported — and exporting
+/// the card is what "Save Image" does. Same-origin bytes cost an extra hop, so
+/// this is not the default anywhere else.
+pub fn proxied(url: String) -> String {
+  case string.starts_with(url, host) {
+    False -> url
+    True -> "/proxy/image/" <> string.drop_start(url, string.length(host))
+  }
+}
+
 /// Rewrite a datastore URL through the resizer.
 ///
 /// Anything else is returned untouched: the transform only exists on that
@@ -80,6 +93,23 @@ pub fn card_img(src: String, alt: String, classes: String) -> Element(msg) {
     attribute.alt(alt),
     attribute.class(classes),
     ..lazy()
+  ])
+}
+
+/// An eagerly-loaded banner image, routed through this server's proxy.
+///
+/// For images that must survive a canvas export — currently only the share
+/// card's cover. Eager because such an image is the subject of its page, and
+/// the proxy because the CDN sends no CORS headers. Everywhere else, link the
+/// CDN directly and skip both costs.
+pub fn exportable_img(src: String, alt: String, classes: String) -> Element(msg) {
+  html.img([
+    attribute.src(proxied(banner(src))),
+    // Declared so the canvas export does not have to guess at the origin.
+    attribute("crossorigin", "anonymous"),
+    attribute.alt(alt),
+    attribute.class(classes),
+    ..eager()
   ])
 }
 

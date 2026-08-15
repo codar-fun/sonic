@@ -64,7 +64,10 @@ pub fn group() -> Decoder(Group) {
 
 pub fn place() -> Decoder(Place) {
   use id <- decode.field("id", decode.string)
-  use title <- opt("title", decode.string)
+  // The API calls the venue's name `name`. Reading `title` here decoded to
+  // None on every place in the system, so the venue name never appeared
+  // anywhere — the address rendered alone and looked like the whole answer.
+  use title <- opt("name", decode.string)
   use address <- opt("address", decode.string)
   use formatted_address <- opt("formatted_address", decode.string)
   use location <- opt("location", decode.string)

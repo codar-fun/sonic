@@ -106,6 +106,33 @@ pub fn in_zone_date(iso: String, zone: Option(String)) -> String {
   }
 }
 
+/// `2024-12-06 14:30` — date and clock together, in the event's zone. The
+/// share card prints start and end as two of these rather than as a range.
+pub fn in_zone_stamp(iso: String, zone: Option(String)) -> String {
+  case zone {
+    Some(tz) if tz != "" ->
+      case format_in_zone(iso, tz, "stamp") {
+        "" -> readable(iso)
+        value -> value
+      }
+    _ -> readable(iso)
+  }
+}
+
+/// The zone's name and its offset at that instant: `Asia/Bangkok  GMT+7`.
+/// Empty when the event carries no zone, so the caller can drop the line
+/// rather than print a stray offset.
+pub fn zone_line(iso: String, zone: Option(String)) -> String {
+  case zone {
+    Some(tz) if tz != "" ->
+      case zone_label(iso, tz) {
+        "" -> tz
+        label -> tz <> "  " <> label
+      }
+    _ -> ""
+  }
+}
+
 /// `14:30 - 16:00 GMT+7`
 pub fn in_zone_range(
   start: String,

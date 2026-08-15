@@ -31,6 +31,7 @@ import sonic/view/page/discover
 import sonic/view/page/error_page
 import sonic/view/page/event_detail
 import sonic/view/page/event_list
+import sonic/view/page/event_share
 import sonic/view/page/group_home
 import sonic/view/page/group_people
 import sonic/view/page/profile
@@ -107,6 +108,20 @@ pub fn handle(req: Request) -> Promise(Response) {
   case router.parse(req.path), req.method {
     router.Home, _ -> render(home_page(), signed_in)
     router.EventList, _ -> render(event_list_page(req.token), signed_in)
+    router.EventShare(id), _ -> {
+      use result <- promise.map(event.detail(id: id, auth: req.token))
+      case result {
+        Ok(found) ->
+          Page(
+            200,
+            document_meta(event_share.view(found), signed_in, event_meta(found)),
+          )
+        Error(err) -> {
+          let #(status, message) = explain(err)
+          Page(status, document(error_page.view(status, message), signed_in))
+        }
+      }
+    }
     router.EventDetail(id), _ -> {
       use result <- promise.map(event.detail(id: id, auth: req.token))
       case result {
