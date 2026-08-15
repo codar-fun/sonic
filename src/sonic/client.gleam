@@ -24,6 +24,8 @@ pub fn main() -> Nil {
   // running a runtime over the card would re-render the very thing the page
   // exists to have screenshotted.
   wire_share_buttons()
+  // The dialogs are CSS-only; Escape is the one behaviour CSS cannot express.
+  wire_dialog_escape()
   Nil
 }
 
@@ -73,3 +75,6 @@ fn signed_in_flag() -> Bool
 
 @external(javascript, "../sonic_client_ffi.mjs", "wire_share_buttons")
 fn wire_share_buttons() -> Nil
+
+@external(javascript, "../sonic_client_ffi.mjs", "wire_dialog_escape")
+fn wire_dialog_escape() -> Nil

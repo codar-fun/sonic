@@ -181,6 +181,23 @@ async function inlineFontRule(rule) {
   }
 }
 
+// Escape closes any open dialog.
+//
+// The dialogs are CSS-only — a hidden checkbox drives them — so opening,
+// closing and submitting all work with no runtime. Escape is the one part CSS
+// cannot express, and it is the part people notice missing.
+export function wire_dialog_escape() {
+  const doc = globalThis.document;
+  if (!doc) return undefined;
+  doc.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    for (const box of doc.querySelectorAll('input.peer[type="checkbox"]')) {
+      if (box.checked) box.checked = false;
+    }
+  });
+  return undefined;
+}
+
 function flash(button, message) {
   const original = button.textContent;
   button.textContent = message;

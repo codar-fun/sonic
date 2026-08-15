@@ -178,6 +178,10 @@ pub type GroupDetail {
     /// "today" in Bangkok is a different day from "today" in UTC for seven
     /// hours out of every twenty-four.
     timezone: Option(String),
+    /// The tags this group's events can carry, in the order it defines them.
+    /// The schedule's filter is built from this rather than from whatever
+    /// happens to appear in the current week.
+    event_tag_list: List(String),
     start_date: Option(String),
     end_date: Option(String),
     events_count: Int,

@@ -154,6 +154,7 @@ pub fn handle(req: Request) -> Promise(Response) {
           req.token,
           "list",
           request.query(req, "start_date"),
+          request.query(req, "tags"),
           schedule.list_view,
         ),
         signed_in,
@@ -165,6 +166,7 @@ pub fn handle(req: Request) -> Promise(Response) {
           req.token,
           "compact",
           request.query(req, "start_date"),
+          request.query(req, "tags"),
           schedule.compact_view,
         ),
         signed_in,
@@ -176,6 +178,7 @@ pub fn handle(req: Request) -> Promise(Response) {
           req.token,
           "venue",
           request.query(req, "start_date"),
+          request.query(req, "tags"),
           schedule.venue_view,
         ),
         signed_in,
@@ -187,6 +190,7 @@ pub fn handle(req: Request) -> Promise(Response) {
           req.token,
           "week",
           request.query(req, "start_date"),
+          request.query(req, "tags"),
           schedule.week_view,
         ),
         signed_in,
@@ -381,7 +385,9 @@ fn schedule_page(
   token: Option(String),
   view: String,
   start_date: Option(String),
-  layout: fn(GroupDetail, Option(String), Page(Event)) -> Element(msg),
+  selected_tags: Option(String),
+  layout:
+    fn(GroupDetail, Option(String), List(String), Page(Event)) -> Element(msg),
 ) -> Promise(Result(Element(msg), ApiError)) {
   use group_result <- promise.await(group.detail(handle: handle, auth: token))
 
@@ -390,16 +396,23 @@ fn schedule_page(
     Ok(found) -> {
       let zone = option.unwrap(found.timezone, "UTC")
       let anchor = option.unwrap(start_date, "")
+      // Sent comma-joined by the filter form and by upstream's own links, so
+      // both shapes have to parse.
+      let tags = case option.unwrap(selected_tags, "") {
+        "" -> []
+        value -> string.split(value, ",")
+      }
       let #(from, to) = schedule_interval(zone, view, anchor)
       use events_result <- promise.map(group.schedule_events(
         handle: handle,
         from: from,
         to: to,
         timezone: found.timezone,
+        tags: tags,
         auth: token,
       ))
       case events_result {
-        Ok(page) -> Ok(layout(found, start_date, page))
+        Ok(page) -> Ok(layout(found, start_date, tags, page))
         Error(err) -> Error(err)
       }
     }

@@ -6,7 +6,8 @@
 
 import gleam/int
 import gleam/javascript/promise.{type Promise}
-import gleam/option.{type Option, Some}
+import gleam/option.{type Option, None, Some}
+import gleam/string
 import sonic/api/client.{type ApiResult, type Auth}
 import sonic/api/decoders
 import sonic/api/types.{
@@ -70,6 +71,7 @@ pub fn schedule_events(
   from from: String,
   to to: String,
   timezone timezone: Option(String),
+  tags tags: List(String),
   auth auth: Auth,
 ) -> Promise(ApiResult(Page(Event))) {
   client.get(
@@ -79,6 +81,12 @@ pub fn schedule_events(
       #("start_date", Some(from)),
       #("end_date", Some(to)),
       #("timezone", timezone),
+      // Comma-joined, as upstream sends it. Empty means no tag filter at all,
+      // which is different from "match nothing".
+      #("tags", case tags {
+        [] -> None
+        values -> Some(string.join(values, ","))
+      }),
       #("limit", Some("400")),
     ],
     auth: auth,

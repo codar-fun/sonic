@@ -229,6 +229,11 @@ pub fn group_detail() -> Decoder(GroupDetail) {
   use banner_image_url <- opt("banner_image_url", decode.string)
   use location <- opt("location", decode.string)
   use timezone <- opt("timezone", decode.string)
+  use event_tag_list <- opt_or(
+    "event_tag_list",
+    [],
+    decode.list(decode.string),
+  )
   use start_date <- opt("start_date", decode.string)
   use end_date <- opt("end_date", decode.string)
   use events_count <- opt_or("events_count", 0, decode.int)
@@ -243,6 +248,7 @@ pub fn group_detail() -> Decoder(GroupDetail) {
     banner_image_url:,
     location:,
     timezone:,
+    event_tag_list:,
     start_date:,
     end_date:,
     events_count:,

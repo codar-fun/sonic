@@ -19,6 +19,7 @@ import lustre/element.{type Element}
 import lustre/element/html
 import sonic/api/types.{type Event, type GroupDetail, type Page}
 import sonic/router
+import sonic/ui/dialog
 import sonic/view/event_card
 import sonic/view/event_time
 import sonic/view/image
@@ -39,38 +40,43 @@ pub type Layout {
 pub fn list_view(
   group: GroupDetail,
   anchor: Option(String),
+  tags: List(String),
   events: Page(Event),
 ) -> Element(msg) {
-  view(group, anchor, events, ListLayout)
+  view(group, anchor, tags, events, ListLayout)
 }
 
 pub fn compact_view(
   group: GroupDetail,
   anchor: Option(String),
+  tags: List(String),
   events: Page(Event),
 ) -> Element(msg) {
-  view(group, anchor, events, CompactLayout)
+  view(group, anchor, tags, events, CompactLayout)
 }
 
 pub fn venue_view(
   group: GroupDetail,
   anchor: Option(String),
+  tags: List(String),
   events: Page(Event),
 ) -> Element(msg) {
-  view(group, anchor, events, VenueLayout)
+  view(group, anchor, tags, events, VenueLayout)
 }
 
 pub fn week_view(
   group: GroupDetail,
   anchor: Option(String),
+  tags: List(String),
   events: Page(Event),
 ) -> Element(msg) {
-  view(group, anchor, events, WeekLayout)
+  view(group, anchor, tags, events, WeekLayout)
 }
 
 fn view(
   group: GroupDetail,
   anchor: Option(String),
+  tags: List(String),
   events: Page(Event),
   layout: Layout,
 ) -> Element(msg) {
@@ -80,7 +86,7 @@ fn view(
       html.div([attribute.class("schedule-bg")], []),
       html.div([attribute.class("page-width z-10 relative")], [
         title_row(group),
-        tool_bar(group, anchor, layout),
+        tool_bar(group, anchor, tags, layout),
         case layout {
           WeekLayout -> week_grid(group, anchor, events)
           ListLayout ->
@@ -122,6 +128,7 @@ fn title_row(group: GroupDetail) -> Element(msg) {
 fn tool_bar(
   group: GroupDetail,
   anchor: Option(String),
+  tags: List(String),
   layout: Layout,
 ) -> Element(msg) {
   let zone = option.unwrap(group.timezone, "UTC")
@@ -160,10 +167,12 @@ fn tool_bar(
           ),
         ]),
       ]),
-      html.div(
+      html.div([attribute.class("flex-row-item-center")], [
+        filter_panel(group, anchor, tags, layout),
+        html.div(
         [
           attribute.class(
-            "flex-row-item-center rounded-[8px] bg-[#ececec] py-[5px] px-[5px]",
+            "flex-row-item-center rounded-[8px] bg-[#ececec] py-[5px] px-[5px] ml-4",
           ),
         ],
         list.map(
@@ -184,6 +193,123 @@ fn tool_bar(
           },
         ),
       ),
+      ]),
+    ],
+  )
+}
+
+/// The tag filter.
+///
+/// A real GET form inside the dialog: submitting it is a navigation, so the
+/// filtered view has its own URL and works with the runtime absent. The dialog
+/// only decides whether the form is on screen.
+///
+/// The checkbox name is `tags` repeated, and the server also accepts the
+/// comma-joined form upstream produces — the same filter arriving by two
+/// spellings should not mean two different results.
+fn filter_panel(
+  group: GroupDetail,
+  anchor: Option(String),
+  selected: List(String),
+  layout: Layout,
+) -> Element(msg) {
+  let count = list.length(selected)
+
+  dialog.view(
+    id: "schedule-filter",
+    title: "Filters",
+    trigger_label: case count {
+      0 -> "Filter"
+      n -> "Filter (" <> int.to_string(n) <> ")"
+    },
+    trigger_class: "font-semibold inline-flex items-center justify-center whitespace-nowrap rounded-lg transition-colors border border-foreground bg-background hover:bg-accent hover:opacity-80 h-11 px-4 py-2 text-base cursor-pointer",
+    // Clearing is a navigation to the unfiltered URL, so it belongs in the
+    // header as a link — the same place upstream puts it.
+    header_action: html.a(
+      [
+        attribute.href(
+          "/event/" <> handle(group) <> "/schedule/" <> view_key(layout),
+        ),
+        attribute.class("text-[#6CD7B2] font-semibold"),
+      ],
+      [element.text("Clear All")],
+    ),
+    body: [
+      html.form(
+        [
+          attribute.method("get"),
+          attribute.action(
+            "/event/" <> handle(group) <> "/schedule/" <> view_key(layout),
+          ),
+          attribute.class("flex flex-col min-h-0 flex-1"),
+        ],
+        [
+          // Filtering should not also jump the reader back to this week.
+          case anchor {
+            Some(date) ->
+              html.input([
+                attribute.type_("hidden"),
+                attribute.name("start_date"),
+                attribute.value(date),
+              ])
+            None -> element.none()
+          },
+          html.div([attribute.class("px-6 pb-2 font-semibold")], [
+            element.text("Tags"),
+          ]),
+          html.div(
+            [attribute.class("px-6 overflow-y-auto flex-1 min-h-0")],
+            list.map(group.event_tag_list, fn(tag) {
+              tag_row(tag, list.contains(selected, tag))
+            }),
+          ),
+          html.div([attribute.class("flex flex-row gap-3 p-6 pt-4")], [
+            // Cancel only closes: it is a label for the dialog's own checkbox,
+            // so it discards the ticks without touching the URL.
+            html.label(
+              [
+                attribute.for("schedule-filter"),
+                attribute.class(
+                  "flex-1 h-11 rounded-lg bg-[#f8f9f8] flex items-center justify-center font-semibold cursor-pointer",
+                ),
+              ],
+              [element.text("Cancel")],
+            ),
+            html.button(
+              [
+                attribute.type_("submit"),
+                attribute.class(
+                  "flex-1 h-11 rounded-lg bg-special text-special-foreground font-semibold",
+                ),
+              ],
+              [element.text("Show Events")],
+            ),
+          ]),
+        ],
+      ),
+    ],
+  )
+}
+
+fn tag_row(tag: String, checked: Bool) -> Element(msg) {
+  html.label(
+    [
+      attribute.class(
+        "flex flex-row items-center justify-between py-2 cursor-pointer",
+      ),
+    ],
+    [
+      html.span([], [element.text(tag)]),
+      html.input([
+        attribute.type_("checkbox"),
+        attribute.name("tags"),
+        attribute.value(tag),
+        attribute.class("w-5 h-5 accent-[#6CD7B2]"),
+        ..case checked {
+          True -> [attribute.checked(True)]
+          False -> []
+        }
+      ]),
     ],
   )
 }
