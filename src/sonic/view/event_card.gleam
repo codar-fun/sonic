@@ -7,13 +7,14 @@
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
-import lustre/attribute.{attribute}
+import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import sonic/api/types.{type Event, type Page}
 import sonic/router
 import sonic/view/badge
 import sonic/view/event_time
+import sonic/view/image
 
 pub fn list(events: Page(Event)) -> Element(msg) {
   case events.data {
@@ -148,12 +149,11 @@ fn group_of(event: Event) -> Option(String) {
 fn thumbnail(url: Option(String)) -> Element(msg) {
   case url {
     Some(src) if src != "" ->
-      html.img([
-        attribute.src(src),
-        attribute.alt(""),
-        attribute.class("w-[140px] h-[140px] rounded-lg object-cover shrink-0"),
-        attribute("loading", "lazy"),
-      ])
+      image.card_img(
+        src,
+        "",
+        "w-[140px] h-[140px] rounded-lg object-cover shrink-0",
+      )
     _ -> element.none()
   }
 }

@@ -19,6 +19,7 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import sonic/api/types.{type Group, type GroupDetail}
+import sonic/view/image
 
 /// The discover payload carries a lighter `Group` shape than /communities
 /// does; this renders it through the same card so the two grids stay one
@@ -135,14 +136,13 @@ fn avatar(url: Option(String), id: String) -> Element(msg) {
   }
 
   html.img([
-    attribute.src(src),
+    attribute.src(image.avatar(src)),
     attribute.alt(""),
     attribute.width(64),
     attribute.height(64),
     attribute.styles([#("width", "64px"), #("height", "64px")]),
     attribute.class("rounded-full object-cover"),
-    attribute.attribute("loading", "lazy"),
-    attribute.attribute("decoding", "async"),
+    ..image.lazy()
   ])
 }
 

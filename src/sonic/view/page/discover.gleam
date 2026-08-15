@@ -12,13 +12,14 @@
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
-import lustre/attribute.{attribute}
+import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import sonic/api/types.{type Discover, type Group, type PopupCity}
 import sonic/view/community_list
 import sonic/view/event_time
 import sonic/view/footer
+import sonic/view/image
 
 pub fn view(data: Discover) -> Element(msg) {
   let featured = list.filter(data.popup_cities, is_featured)
@@ -73,12 +74,10 @@ fn feature_slide(city: PopupCity) -> Element(msg) {
       case first_present([city.banner_image_url, city.image_url]) {
         Some(src) ->
           html.img([
-            attribute.src(src),
+            attribute.src(image.banner(src)),
             attribute.alt(option_text(city.name)),
             attribute.class("w-full h-full object-cover"),
-            attribute("fetchpriority", "high"),
-            attribute("loading", "eager"),
-            attribute("decoding", "async"),
+            ..image.eager()
           ])
         None -> html.div([attribute.class("w-full h-full bg-gray-100")], [])
       },
@@ -280,11 +279,7 @@ fn is_featured(city: PopupCity) -> Bool {
 fn cover(url: Option(String)) -> Element(msg) {
   case url {
     Some(src) if src != "" ->
-      html.img([
-        attribute.src(src),
-        attribute.alt(""),
-        attribute.class("object-cover w-full h-full rounded"),
-      ])
+      image.card_img(src, "", "object-cover w-full h-full rounded")
     _ -> html.div([attribute.class("w-full h-full bg-gray-100 rounded")], [])
   }
 }
