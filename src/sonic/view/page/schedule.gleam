@@ -17,6 +17,7 @@ import lustre/element.{type Element}
 import lustre/element/html
 import sonic/api/types.{type Event, type GroupDetail, type Page}
 import sonic/router
+import sonic/view/event_card
 import sonic/view/event_time
 
 /// How a day's events are laid out. The fetch and the grouping are identical
@@ -59,30 +60,12 @@ fn view(
       rows ->
         html.div(
           [],
-          list.map(group_by_date(rows), fn(entry) { day_block(entry, layout) }),
+          list.map(event_card.group_by_date(rows), fn(entry) {
+            day_block(entry, layout)
+          }),
         )
     },
   ])
-}
-
-/// Events grouped under their start date, preserving the API's ordering within
-/// each day and the order in which dates first appear.
-fn group_by_date(events: List(Event)) -> List(#(String, List(Event))) {
-  events
-  |> list.fold([], fn(acc, event) {
-    let key = date_of(event.start_time)
-    case list.key_find(acc, key) {
-      Ok(existing) -> list.key_set(acc, key, list.append(existing, [event]))
-      Error(_) -> list.append(acc, [#(key, [event])])
-    }
-  })
-}
-
-fn date_of(iso: String) -> String {
-  case string.split(iso, "T") {
-    [date, ..] -> date
-    [] -> iso
-  }
 }
 
 fn day_block(entry: #(String, List(Event)), layout: Layout) -> Element(msg) {
