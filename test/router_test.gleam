@@ -66,3 +66,13 @@ pub fn detail_is_not_a_group_handle_test() {
   router.parse("/event/share/abc") |> should.equal(EventShare("abc"))
   router.parse("/event/shanhaiwoo") |> should.equal(GroupHome("shanhaiwoo"))
 }
+
+/// The week view is a distinct route, not a query on the list view. Without
+/// this it fell through to the group page for a group named "week".
+pub fn schedule_week_route_test() {
+  router.parse("/event/4seas/schedule/week")
+  |> should.equal(router.ScheduleWeek("4seas"))
+
+  router.href(router.ScheduleWeek("4seas"))
+  |> should.equal("/event/4seas/schedule/week")
+}

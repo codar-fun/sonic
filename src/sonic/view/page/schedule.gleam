@@ -10,8 +10,10 @@
 //// instead returned the group's entire history under a heading that says this
 //// week — which is how this page came to be showing hundreds of past events.
 
+import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/string
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
@@ -30,6 +32,8 @@ pub type Layout {
   CompactLayout
   /// Grouped by venue within each day.
   VenueLayout
+  /// Seven columns, one per weekday.
+  WeekLayout
 }
 
 pub fn list_view(group: GroupDetail, events: Page(Event)) -> Element(msg) {
@@ -44,6 +48,10 @@ pub fn venue_view(group: GroupDetail, events: Page(Event)) -> Element(msg) {
   view(group, events, VenueLayout)
 }
 
+pub fn week_view(group: GroupDetail, events: Page(Event)) -> Element(msg) {
+  view(group, events, WeekLayout)
+}
+
 fn view(
   group: GroupDetail,
   events: Page(Event),
@@ -56,7 +64,10 @@ fn view(
       html.div([attribute.class("page-width z-10 relative")], [
         title_row(group),
         tool_bar(group, layout),
-        body(events, layout),
+        case layout {
+          WeekLayout -> week_grid(group, events)
+          _ -> body(events, layout)
+        },
       ]),
     ],
   )
@@ -108,6 +119,7 @@ fn tool_bar(group: GroupDetail, layout: Layout) -> Element(msg) {
             #("Compact", "/schedule/compact", CompactLayout, "w-[94px]"),
             #("Venue", "/schedule/venue", VenueLayout, "w-[74px]"),
             #("List", "/schedule/list", ListLayout, "w-[74px]"),
+            #("Week", "/schedule/week", WeekLayout, "w-[74px]"),
           ],
           fn(tab) {
             let #(label, path, tab_layout, width) = tab
@@ -160,6 +172,154 @@ fn body(events: Page(Event), layout: Layout) -> Element(msg) {
           day_block(entry, layout)
         }),
       )
+  }
+}
+
+/// Seven columns, one per weekday, each stacking that day's events.
+///
+/// The days come from the window rather than from the events: deriving them
+/// from what came back would drop a quiet Tuesday entirely and shift the rest
+/// of the week left.
+///
+/// Fixed 1000px wide and horizontally scrollable, as upstream — seven readable
+/// columns do not fit a phone, and squeezing them to fit makes all seven
+/// unreadable instead of six off-screen.
+fn week_grid(group: GroupDetail, events: Page(Event)) -> Element(msg) {
+  let days = schedule_days(option.unwrap(group.timezone, "UTC"), "week")
+  let by_day = event_card.group_by_date(events.data)
+
+  html.div([attribute.class("overflow-x-auto pb-4")], [
+    html.div([attribute.class("w-[1000px]")], [
+      html.div(
+        [attribute.class("grid gap-2 grid-cols-7 mt-4 mb-2")],
+        list.map(days, fn(day) {
+          html.div([attribute.class("text-center font-semibold")], [
+            element.text(weekday_label(day)),
+          ])
+        }),
+      ),
+      html.div(
+        [attribute.class("grid gap-2 grid-cols-7")],
+        list.flatten(
+          list.index_map(days, fn(day, column) {
+            let of_day = case list.key_find(by_day, day) {
+              Ok(found) -> found
+              Error(_) -> []
+            }
+            list.index_map(of_day, fn(event, row) {
+              week_card(event, column, row)
+            })
+          }),
+        ),
+      ),
+    ]),
+  ])
+}
+
+/// Placed explicitly rather than flowed: a CSS grid fills row-major, so an
+/// event on Tuesday would otherwise land in whatever cell came next and the
+/// columns would stop meaning anything.
+fn week_card(event: Event, column: Int, row: Int) -> Element(msg) {
+  let area =
+    int.to_string(row + 1)
+    <> " / "
+    <> int.to_string(column + 1)
+    <> " / "
+    <> int.to_string(row + 2)
+    <> " / "
+    <> int.to_string(column + 2)
+
+  html.a(
+    [
+      attribute.href(router.href(router.EventDetail(event.id))),
+      attribute.class(
+        "bg-white p-2 h-[220px] text-xs scale-100 relative duration-300 cursor-pointer hover:scale-105 hover:z-[999] block overflow-hidden",
+      ),
+      attribute.styles([
+        #("grid-area", area),
+        #("box-shadow", "0 1.988px 18px 0 rgba(0, 0, 0, 0.10)"),
+      ]),
+    ],
+    [
+      html.div(
+        [
+          attribute.class("block w-[2px] h-[210px] absolute left-0 top-0"),
+          attribute.styles([#("background", track_colour(event))]),
+        ],
+        [],
+      ),
+      html.div([attribute.class("font-xs color-[#4F5150] my-1")], [
+        element.text(clock_range(event)),
+      ]),
+      html.div(
+        [
+          attribute.class(
+            "font-semibold text-sm leading-[22px] h-[44px] overflow-hidden webkit-box-clamp-2",
+          ),
+        ],
+        [element.text(event.title)],
+      ),
+      tag_chips(event.tags),
+      host_line(event),
+      case where_line(event) {
+        Some(name) ->
+          html.div(
+            [
+              attribute.class(
+                "absolute right-2 left-2 bottom-2 whitespace-nowrap overflow-hidden overflow-ellipsis",
+              ),
+            ],
+            [element.text(name)],
+          )
+        None -> element.none()
+      },
+    ],
+  )
+}
+
+/// The first tag as a chip, the rest as a count. Upstream does the same: a
+/// card is 220px tall and a busy event has five tags.
+fn tag_chips(tags: List(String)) -> Element(msg) {
+  case tags {
+    [] -> element.none()
+    [first, ..rest] ->
+      html.div([attribute.class("text-xs my-1")], [
+        chip(first),
+        case list.length(rest) {
+          0 -> element.none()
+          count -> chip("+" <> int.to_string(count))
+        },
+      ])
+  }
+}
+
+fn chip(label: String) -> Element(msg) {
+  html.div(
+    [
+      attribute.class(
+        "border border-[#CECED3] inline-flex flex-row flex-nowrap items-center h-[26px] px-2 rounded-3xl m-[2px] !ml-0 max-w-[110px]",
+      ),
+    ],
+    [
+      html.span(
+        [attribute.class("overflow-ellipsis overflow-hidden whitespace-nowrap")],
+        [element.text(label)],
+      ),
+    ],
+  )
+}
+
+/// `10:00 - 11:00` — clock only, in the event's zone. The column already says
+/// which day it is.
+fn clock_range(event: Event) -> String {
+  case
+    string.split(
+      event_time.in_zone_range(event.start_time, event.end_time, event.timezone),
+      " ",
+    )
+  {
+    [from, dash, to, ..] -> from <> " " <> dash <> " " <> to
+    _ -> ""
   }
 }
 
@@ -357,3 +517,9 @@ fn first_present(values: List(Option(String))) -> Option(String) {
 
 @external(javascript, "../../../sonic_ffi.mjs", "month_label")
 fn month_label(zone: String) -> String
+
+@external(javascript, "../../../sonic_ffi.mjs", "schedule_days")
+fn schedule_days(zone: String, view: String) -> List(String)
+
+@external(javascript, "../../../sonic_ffi.mjs", "weekday_label")
+fn weekday_label(date: String) -> String

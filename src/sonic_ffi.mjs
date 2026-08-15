@@ -299,6 +299,38 @@ export function schedule_interval(zone, view) {
   return [isoDate(today), isoDate(today)];
 }
 
+// Every date in the schedule's window, as YYYY-MM-DD.
+//
+// The week grid needs all seven columns whether or not anything is scheduled
+// on a given day, so it cannot derive them from the events it received — a
+// quiet Tuesday would simply vanish and shift the rest of the week left.
+export function schedule_days(zone, view) {
+  const [from, to] = schedule_interval(zone, view);
+  const days = [];
+  let current = new Date(`${from}T00:00:00Z`);
+  const last = new Date(`${to}T00:00:00Z`);
+  while (current <= last) {
+    days.push(isoDate(current));
+    current = addDays(current, 1);
+  }
+  return List.fromArray(days);
+}
+
+// "Mon 10" — a week-grid column header.
+export function weekday_label(date) {
+  try {
+    const d = new Date(`${date}T00:00:00Z`);
+    if (Number.isNaN(d.getTime())) return date;
+    const weekday = new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      timeZone: "UTC",
+    }).format(d);
+    return `${weekday} ${d.getUTCDate()}`;
+  } catch {
+    return date;
+  }
+}
+
 // "2026 August" — the schedule's month label.
 export function month_label(zone) {
   const tz = zone || "UTC";

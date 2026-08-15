@@ -162,6 +162,11 @@ pub fn handle(req: Request) -> Promise(Response) {
         schedule_page(handle, req.token, "venue", schedule.venue_view),
         signed_in,
       )
+    router.ScheduleWeek(handle), _ ->
+      render(
+        schedule_page(handle, req.token, "week", schedule.week_view),
+        signed_in,
+      )
     router.Venues(handle), _ ->
       render(venues_page(handle, req.token), signed_in)
     router.Members(handle), _ ->
