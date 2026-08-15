@@ -335,6 +335,38 @@ export function schedule_step(zone, view, startDate, direction) {
   return isoDate(addDays(new Date(`${from}T00:00:00Z`), span * direction));
 }
 
+// A tag's colour.
+//
+// Ported from seastar-app's `stringToColor` rather than reinvented, and kept in
+// JS on purpose: the algorithm leans on 32-bit signed shifts, and a Gleam
+// version that rounded differently would give every tag a *plausible* colour
+// that does not match the reference.
+export function label_color(label) {
+  if (!label) return "#e6934c";
+  let hash = 0;
+  for (let i = 0; i < label.length; i++) {
+    hash = (label.charCodeAt(i) + ((hash << 5) - hash)) * 2;
+  }
+  let color = "#";
+  for (let i = 0; i < 3; i++) {
+    const value = (hash >> (i * 8)) & 0xff;
+    color += ("00" + value.toString(16)).slice(-2);
+  }
+  return color;
+}
+
+// Has this instant already gone by? The "Past" badge depends on a clock, which
+// is why it cannot be decided from the payload alone.
+export function has_passed(iso) {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return false;
+    return d.getTime() < Date.now();
+  } catch {
+    return false;
+  }
+}
+
 // Today's calendar date in a zone, as YYYY-MM-DD. The schedule marks it.
 export function today_in_zone(zone) {
   return isoDate(zonedToday(zone || "UTC"));

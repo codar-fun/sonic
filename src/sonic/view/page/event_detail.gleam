@@ -20,7 +20,7 @@ import sonic/view/badge
 import sonic/view/event_time
 import sonic/view/image
 
-pub fn view(event: Event) -> Element(msg) {
+pub fn view(event: Event, repeats: Option(String)) -> Element(msg) {
   html.div([attribute.class("page-width !pt-4 !pb-12")], [
     top_bar(event),
     html.div([attribute.class("flex flex-col sm:flex-row")], [
@@ -38,7 +38,7 @@ pub fn view(event: Event) -> Element(msg) {
         ]),
         tag_row(event),
         host_row(event),
-        date_row(event),
+        date_row(event, repeats),
         location_block(event),
         tabs(event),
         body(event),
@@ -104,14 +104,20 @@ fn top_bar(event: Event) -> Element(msg) {
 /// dot; the colour is derived from the tag there, so a fixed palette is used
 /// here rather than inventing a per-tag colour that would not match anyway.
 fn tag_row(event: Event) -> Element(msg) {
+  // Each tag's dot is a deterministic hash of its name, the same one upstream
+  // uses — a fixed palette would have given every tag a plausible colour that
+  // matched nothing.
   let tags =
     list.map(event.tags, fn(tag) {
-      html.div([attribute.class("flex-row-item-center mr-3 text-sm")], [
-        html.span(
-          [attribute.class("w-2 h-2 rounded-full bg-[#c863ff] mr-1 shrink-0")],
+      html.div([attribute.class("flex-row-item-center gap-1.5 text-sm")], [
+        html.i(
+          [
+            attribute.class("w-2 h-2 rounded-full"),
+            attribute.styles([#("background-color", label_color(tag))]),
+          ],
           [],
         ),
-        element.text(tag),
+        html.div([], [element.text(tag)]),
       ])
     })
 
@@ -121,7 +127,7 @@ fn tag_row(event: Event) -> Element(msg) {
       html.div(
         [
           attribute.class(
-            "flex-row-item-center my-3 gap-1 overflow-auto !flex-wrap",
+            "flex-row-item-center my-3 gap-3 overflow-auto !flex-wrap",
           ),
         ],
         [status_badge(event), ..tags],
@@ -133,7 +139,9 @@ fn has_status(event: Event) -> Bool {
   case event.status, event.visibility {
     "cancelled", _ | "pending", _ -> True
     _, "private" -> True
-    _, _ -> False
+    // An event whose end time has gone by is marked Past. This is the one
+    // badge that cannot be read off the payload — it needs a clock.
+    _, _ -> has_passed(event.end_time)
   }
 }
 
@@ -142,7 +150,11 @@ fn status_badge(event: Event) -> Element(msg) {
     "cancelled", _ -> badge.view(badge.Cancel, "Cancelled")
     "pending", _ -> badge.view(badge.Pending, "Pending")
     _, "private" -> badge.view(badge.Private, "Private")
-    _, _ -> element.none()
+    _, _ ->
+      case has_passed(event.end_time) {
+        True -> badge.view(badge.Past, "Past")
+        False -> element.none()
+      }
   }
 }
 
@@ -151,7 +163,13 @@ fn status_badge(event: Event) -> Element(msg) {
 fn host_row(event: Event) -> Element(msg) {
   let owner = case event.owner {
     Some(o) -> [
-      person(o.image_url, o.id, name_of(o.nickname, o.name, o.id), "Host"),
+      person(
+        o.image_url,
+        o.id,
+        name_of(o.nickname, o.name, o.id),
+        "Host",
+        o.name,
+      ),
     ]
     None -> []
   }
@@ -163,6 +181,7 @@ fn host_row(event: Event) -> Element(msg) {
         option_text(role.display_name),
         option_text(role.display_name),
         label_for(role.role),
+        None,
       )
     })
 
@@ -182,19 +201,36 @@ fn host_row(event: Event) -> Element(msg) {
   }
 }
 
+/// A host links to their profile when they have a handle. Co-hosts carried on
+/// `event_roles` often have only a display name, so those stay plain text
+/// rather than linking somewhere that does not resolve.
 fn person(
   picture: Option(String),
   id: String,
   name: String,
   role: String,
+  handle: Option(String),
 ) -> Element(msg) {
-  html.div([attribute.class("flex-row-item-center shrink-0")], [
-    image.avatar_or_default(picture, id, "w-10 h-10 rounded-full"),
-    html.div([attribute.class("ml-2")], [
-      html.div([attribute.class("font-semibold")], [element.text(name)]),
-      html.div([attribute.class("text-sm text-gray-400")], [element.text(role)]),
+  let inner = [
+    image.avatar_or_default(picture, id, "w-11 h-11 rounded-full mr-2"),
+    html.div([], [
+      html.div([attribute.class("font-semibold text-sm text-nowrap")], [
+        element.text(name),
+      ]),
+      html.div([attribute.class("text-xs text-gray-400")], [element.text(role)]),
     ]),
-  ])
+  ]
+  let classes =
+    "my-3 shrink-0 grow-0 inline-flex flex-row items-center mr-6 overflow-auto"
+
+  case handle {
+    Some(value) if value != "" ->
+      html.a(
+        [attribute.href("/profile/" <> value), attribute.class(classes)],
+        inner,
+      )
+    _ -> html.div([attribute.class(classes)], inner)
+  }
 }
 
 /// `co_host` reads as machinery; upstream shows "Co-Host".
@@ -207,27 +243,37 @@ fn label_for(role: Option(String)) -> String {
   }
 }
 
-fn date_row(event: Event) -> Element(msg) {
-  html.div([attribute.class("flex-row-item-center py-4")], [
+fn date_row(event: Event, repeats: Option(String)) -> Element(msg) {
+  html.div([attribute.class("flex-row-item-center my-4")], [
     html.div(
       [
         attribute.class(
-          "w-10 h-10 rounded-lg bg-[#f8f9f8] flex items-center justify-center shrink-0",
+          "mr-2 flex-shrink-0 w-9 h-9 flex flex-row items-center justify-center border border-gray-300 rounded-lg",
         ),
       ],
-      [html.i([attribute.class("uil-calender text-lg")], [])],
+      [html.i([attribute.class("uil-calendar-alt text-base")], [])],
     ),
-    html.div([attribute.class("ml-3")], [
-      html.div([attribute.class("font-semibold")], [
+    html.div([], [
+      html.div([attribute.class("font-semibold text-base")], [
         element.text(event_time.in_zone_date(event.start_time, event.timezone)),
       ]),
-      html.div([attribute.class("text-gray-400")], [
+      html.div([attribute.class("text-gray-400 text-base")], [
         element.text(event_time.in_zone_range(
           event.start_time,
           event.end_time,
           event.timezone,
         )),
       ]),
+      // Only shown when the event belongs to a recurrence — the interval comes
+      // from /recurring/:id, not from the event itself.
+      case repeats {
+        Some(interval) if interval != "" ->
+          html.div(
+            [attribute.class("text-xs cursor-pointer flex-row-item-center text-blue-400")],
+            [element.text("Repeating Events ,every " <> interval)],
+          )
+        _ -> element.none()
+      },
     ]),
   ])
 }
@@ -247,39 +293,28 @@ fn location_block(event: Event) -> Element(msg) {
   case name, address {
     None, None -> element.none()
     _, _ ->
-      html.div([attribute.class("flex-row-item-center py-4")], [
+      html.div([attribute.class("flex-row-item-center my-4")], [
         html.div(
           [
             attribute.class(
-              "w-10 h-10 rounded-lg bg-[#f8f9f8] flex items-center justify-center shrink-0",
+              "mr-2 flex-shrink-0 w-9 h-9 flex flex-row items-center justify-center border border-gray-300 rounded-lg",
             ),
           ],
-          [html.i([attribute.class("uil-location-point text-lg")], [])],
+          [html.i([attribute.class("uil-location-point text-base")], [])],
         ),
-        html.div([attribute.class("ml-3 min-w-0")], [
+        html.div([attribute.class("min-w-0")], [
           case name {
             Some(text) ->
-              html.div([attribute.class("font-semibold")], [element.text(text)])
+              html.div([attribute.class("font-semibold text-base")], [
+                element.text(text),
+              ])
             None -> element.none()
           },
           case address {
             Some(text) ->
-              html.div([attribute.class("text-gray-400")], [element.text(text)])
-            None -> element.none()
-          },
-          case address {
-            Some(text) ->
-              html.a(
-                [
-                  attribute.href(
-                    "https://www.google.com/maps/search/?api=1&query=" <> text,
-                  ),
-                  attribute.class("text-sm text-[#6cd7b2] mr-3"),
-                  attribute("target", "_blank"),
-                  attribute("rel", "noopener noreferrer"),
-                ],
-                [element.text("View map")],
-              )
+              html.div([attribute.class("text-gray-400 text-base")], [
+                element.text(text),
+              ])
             None -> element.none()
           },
         ]),
@@ -292,20 +327,52 @@ fn location_block(event: Event) -> Element(msg) {
 /// silently shows the wrong thing would be worse than one that is honest.
 fn tabs(event: Event) -> Element(msg) {
   html.div(
+    [attribute.class("flex font-semibold mt-6 scroll-mt-4"), attribute("role", "tablist")],
     [
-      attribute.class("flex-row-item-center justify-around my-6"),
-      attribute.styles([#("border-bottom", "1px solid #f1f1f1")]),
-    ],
-    [
-      html.div(
-        [attribute.class("font-semibold pb-2 border-b-2 border-[#7ff7ce]")],
-        [element.text("Content")],
+      html.button(
+        [
+          attribute.type_("button"),
+          attribute("role", "tab"),
+          attribute("aria-selected", "true"),
+          attribute.class(
+            "flex-1 min-w-0 text-center cursor-pointer text-sm sm:text-base py-1 px-1 sm:px-2 relative whitespace-nowrap",
+          ),
+        ],
+        [
+          html.span([attribute.class("relative z-10")], [
+            element.text("Content"),
+          ]),
+          // The selected tab's underline is an image upstream, not a border —
+          // it is a tapered brush stroke that a border cannot draw.
+          html.img([
+            attribute.src("/static/images/tab_bg.png"),
+            attribute.alt(""),
+            attribute.width(90),
+            attribute.height(12),
+            attribute.class(
+              "w-[64px] sm:w-[80px] absolute left-1/2 -translate-x-1/2 bottom-0",
+            ),
+          ]),
+        ],
       ),
-      html.div([attribute.class("font-semibold pb-2 text-gray-400")], [
-        element.text(
-          "Participants(" <> int.to_string(event.participant_count) <> ")",
-        ),
-      ]),
+      html.button(
+        [
+          attribute.type_("button"),
+          attribute("role", "tab"),
+          attribute("aria-selected", "false"),
+          attribute.class(
+            "flex-1 min-w-0 text-center cursor-pointer text-sm sm:text-base py-1 px-1 sm:px-2 relative whitespace-nowrap border-l-[1px] border-gray-200",
+          ),
+        ],
+        [
+          html.span([attribute.class("relative z-10")], [
+            element.text("Participants"),
+            html.span([attribute.class("text-xs ml-0.5")], [
+              element.text("(" <> int.to_string(event.participant_count) <> ")"),
+            ]),
+          ]),
+        ],
+      ),
     ],
   )
 }
@@ -334,29 +401,36 @@ fn body(event: Event) -> Element(msg) {
 
 fn comments() -> Element(msg) {
   html.div([attribute.class("mt-6")], [
-    html.div([attribute.class("font-semibold mb-3")], [
-      element.text("Comments"),
-    ]),
-    html.div([attribute.class("bg-[#f8f9f8] rounded-lg p-3")], [
-      html.textarea(
-        [
-          attribute.class("w-full bg-transparent outline-none text-sm"),
-          attribute.placeholder("Input comment"),
-          attribute("rows", "3"),
-          attribute.disabled(True),
-        ],
-        "",
-      ),
-      html.div([attribute.class("flex justify-end")], [
-        html.a(
+    html.div([attribute.class("font-semibold")], [element.text("Comments")]),
+    html.div([attribute.class("py-4 flex flex-row w-full !items-start")], [
+      // The signed-out avatar is the shipped default, as upstream renders it.
+      html.img([
+        attribute.src("/static/images/default_avatar/avatar_1.png"),
+        attribute.alt(""),
+        attribute.class("w-9 h-9 rounded-full mr-2 border"),
+      ]),
+      html.div([attribute.class("flex-1 bg-secondary rounded-lg p-2")], [
+        html.textarea(
           [
-            attribute.href("/signin"),
             attribute.class(
-              "bg-[#272928] text-white rounded-lg px-3 py-2 text-sm font-semibold",
+              "flex w-full bg-secondary px-3 py-2 text-base outline-none min-h-[60px] !border-0 md:text-sm",
             ),
+            attribute.placeholder("Input comment"),
+            attribute.disabled(True),
           ],
-          [element.text("Sign in to send a comment")],
+          "",
         ),
+        html.div([attribute.class("flex-row-item-center justify-end")], [
+          html.a(
+            [
+              attribute.href("/signin"),
+              attribute.class(
+                "font-semibold inline-flex items-center justify-center whitespace-nowrap rounded-lg bg-foreground text-white hover:opacity-80 h-7 px-3 text-xs mt-2",
+              ),
+            ],
+            [element.text("Sign in to send a comment")],
+          ),
+        ]),
       ]),
     ]),
   ])
@@ -457,3 +531,9 @@ fn option_text(value: Option(String)) -> String {
 
 @external(javascript, "../../../sonic_ffi.mjs", "render_markdown")
 fn render_markdown(source: String) -> String
+
+@external(javascript, "../../../sonic_ffi.mjs", "label_color")
+fn label_color(label: String) -> String
+
+@external(javascript, "../../../sonic_ffi.mjs", "has_passed")
+fn has_passed(iso: String) -> Bool

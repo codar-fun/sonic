@@ -76,6 +76,9 @@ pub type Event {
     max_participant: Option(Int),
     require_approval: Bool,
     pinned: Bool,
+    /// Set when the event is one instance of a repeating series. The interval
+    /// itself lives behind `/recurring/:id`, not on the event.
+    recurring_id: Option(String),
     tags: List(String),
     owner: Option(Profile),
     group: Option(Group),

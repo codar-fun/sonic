@@ -123,20 +123,25 @@ pub fn handle(req: Request) -> Promise(Response) {
       }
     }
     router.EventDetail(id), _ -> {
-      use result <- promise.map(event.detail(id: id, auth: req.token))
+      use result <- promise.await(event.detail(id: id, auth: req.token))
       case result {
-        Ok(found) ->
+        Ok(found) -> {
+          use repeats <- promise.map(recurrence_of(found))
           Page(
             200,
             document_meta(
-              event_detail.view(found),
+              event_detail.view(found, repeats),
               signed_in,
               event_meta(found),
             ),
           )
+        }
         Error(err) -> {
           let #(status, message) = explain(err)
-          Page(status, document(error_page.view(status, message), signed_in))
+          promise.resolve(Page(
+            status,
+            document(error_page.view(status, message), signed_in),
+          ))
         }
       }
     }
@@ -314,12 +319,23 @@ fn event_list_page(
   result |> map_ok(event_list.view)
 }
 
-fn event_detail_page(
-  id: String,
-  token: Option(String),
-) -> Promise(Result(Element(msg), ApiError)) {
-  use result <- promise.map(event.detail(id: id, auth: token))
-  result |> map_ok(event_detail.view)
+/// The recurrence interval is a second request, and only when the event is
+/// part of a series — most are not, and asking unconditionally would put an
+/// extra round trip on every event page to render nothing.
+///
+/// A failure there is swallowed: the series label is a detail, and losing the
+/// whole page because a secondary lookup failed would be the wrong trade.
+fn recurrence_of(event_detail: Event) -> Promise(Option(String)) {
+  case event_detail.recurring_id {
+    Some(id) if id != "" ->
+      promise.map(event.recurring_interval(id: id), fn(result) {
+        case result {
+          Ok(interval) if interval != "" -> Some(interval)
+          _ -> None
+        }
+      })
+    _ -> promise.resolve(None)
+  }
 }
 
 /// Two requests, run concurrently: the group and its events do not depend on

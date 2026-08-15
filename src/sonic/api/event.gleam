@@ -71,6 +71,20 @@ pub fn mine(auth auth: Auth) -> Promise(ApiResult(Page(Event))) {
 
 /// The upstream app links out to an `.ics` file rather than building one, so
 /// this returns the URL instead of fetching it.
+/// `GET /recurring/:id` — the series an event belongs to.
+///
+/// Only the interval is decoded. The payload also carries every instance,
+/// which the detail page does not show and which grows without bound on a
+/// weekly series that has been running for a year.
+pub fn recurring_interval(id id: String) -> Promise(ApiResult(String)) {
+  client.get(
+    path: "/recurring/" <> id,
+    query: [],
+    auth: None,
+    expect: decoders.recurring_interval(),
+  )
+}
+
 pub fn calendar_url(id: String) -> String {
   client.base_url <> "/api/v1/events/" <> id <> "/calendar.ics"
 }

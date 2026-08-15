@@ -112,6 +112,7 @@ pub fn event() -> Decoder(Event) {
   use max_participant <- opt("max_participant", decode.int)
   use require_approval <- opt_or("require_approval", False, decode.bool)
   use pinned <- opt_or("pinned", False, decode.bool)
+  use recurring_id <- opt("recurring_id", decode.string)
   use tags <- opt_or("tags", [], decode.list(decode.string))
   use owner <- opt("owner", profile())
   use group <- opt("group", group())
@@ -136,6 +137,7 @@ pub fn event() -> Decoder(Event) {
     max_participant:,
     require_approval:,
     pinned:,
+    recurring_id:,
     tags:,
     owner:,
     group:,
@@ -150,6 +152,12 @@ pub fn event_role() -> Decoder(EventRole) {
   use image_url <- opt("image_url", decode.string)
   use role <- opt("role", decode.string)
   decode.success(EventRole(display_name:, image_url:, role:))
+}
+
+/// Just the interval from `/recurring/:id` — "week", "day", "month".
+pub fn recurring_interval() -> Decoder(String) {
+  use interval <- opt_or("interval", "", decode.string)
+  decode.success(interval)
 }
 
 pub fn meta() -> Decoder(Meta) {
