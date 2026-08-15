@@ -2,7 +2,9 @@
 //// cannot drift from the routes that match them; these tests assert that
 //// round trip explicitly.
 
+import gleam/option.{type Option, None, Some}
 import gleeunit/should
+import sonic/server
 import sonic/router.{
   EventDetail, EventList, EventShare, GroupHome, Home, NotFound,
 }
@@ -75,4 +77,15 @@ pub fn schedule_week_route_test() {
 
   router.href(router.ScheduleWeek("4seas"))
   |> should.equal("/event/4seas/schedule/week")
+}
+
+/// `return` arrives in a URL, so a sign-in link could otherwise hand the
+/// visitor to another site once they have signed in. A leading `//` is
+/// protocol-relative — absolute in effect — which is the case a plain
+/// "starts with /" check lets through.
+pub fn return_path_must_be_same_site_test() {
+  server.safe_return(Some("/event/4seas")) |> should.equal(Some("/event/4seas"))
+  server.safe_return(Some("//evil.example/x")) |> should.equal(None)
+  server.safe_return(Some("https://evil.example")) |> should.equal(None)
+  server.safe_return(None) |> should.equal(None)
 }

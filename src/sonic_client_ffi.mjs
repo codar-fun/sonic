@@ -181,6 +181,34 @@ async function inlineFontRule(rule) {
   }
 }
 
+// Point the header's Sign In link back at the page it was clicked from.
+//
+// Upstream renders `/signin?return=<current url>` server-side. Doing that here
+// would mean threading the request path through every render function and the
+// layout, so it is set on load instead. The consequence is honest and small:
+// with the runtime absent the link is a bare /signin and sign-in lands on the
+// home page, which is where it landed before this existed.
+export function wire_signin_return() {
+  const doc = globalThis.document;
+  if (!doc) return undefined;
+  // Delegated, and in the capture phase: the account menu renders its items
+  // only once open, so nothing matches at load time. Rewriting on the way to
+  // the click means the link is correct whenever it exists.
+  doc.addEventListener(
+    "click",
+    (event) => {
+      const link = event.target?.closest?.('a[href^="/signin"]');
+      if (!link || link.search) return;
+      const here = globalThis.location?.pathname ?? "/";
+      if (here === "/signin" || here === "/") return;
+      const search = globalThis.location?.search ?? "";
+      link.href = `/signin?return=${encodeURIComponent(here + search)}`;
+    },
+    true,
+  );
+  return undefined;
+}
+
 // Escape closes any open dialog.
 //
 // The dialogs are CSS-only — a hidden checkbox drives them — so opening,

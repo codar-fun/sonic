@@ -15,10 +15,15 @@ import lustre/element.{type Element}
 import lustre/element/html
 
 /// Step one: which address should the code go to.
-pub fn ask_email(error: Option(String)) -> Element(msg) {
+/// `return` is where to go once signed in. Carried as a hidden field through
+/// both steps rather than held server-side: the two requests are independent,
+/// and parking half a sign-in on the server to remember a URL is a worse trade
+/// than a form field.
+pub fn ask_email(error: Option(String), return: Option(String)) -> Element(msg) {
   shell([
     heading("Sign In"),
     html.form([attribute.method("post"), attribute.action("/signin")], [
+      return_field(return),
       html.div([attribute.class("mb-3")], [
         field(
           glyph: "uil-envelope",
@@ -39,13 +44,18 @@ pub fn ask_email(error: Option(String)) -> Element(msg) {
 
 /// Step two: the code. The address rides in a hidden field, so nothing
 /// half-finished has to be stored or expired on the server.
-pub fn ask_code(email: String, error: Option(String)) -> Element(msg) {
+pub fn ask_code(
+  email: String,
+  error: Option(String),
+  return: Option(String),
+) -> Element(msg) {
   shell([
     heading("Check your email"),
     html.div([attribute.class("text-sm mb-6 text-gray-400")], [
       element.text("We sent a code to " <> email <> "."),
     ]),
     html.form([attribute.method("post"), attribute.action("/signin/verify")], [
+      return_field(return),
       html.input([
         attribute.type_("hidden"),
         attribute.name("email"),
@@ -194,6 +204,18 @@ fn problem(error: Option(String)) -> Element(msg) {
     Some(message) ->
       html.div([attribute.class("text-sm text-[#b91c1c] mb-3")], [
         element.text(message),
+      ])
+    None -> element.none()
+  }
+}
+
+fn return_field(return: Option(String)) -> Element(msg) {
+  case return {
+    Some(path) ->
+      html.input([
+        attribute.type_("hidden"),
+        attribute.name("return"),
+        attribute.value(path),
       ])
     None -> element.none()
   }

@@ -222,7 +222,8 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.Profile(handle), _ ->
       render(profile_page(handle, req.token), signed_in)
 
-    router.Signin, Get -> auth_page(200, signin.ask_email(None))
+    router.Signin, Get ->
+      auth_page(200, signin.ask_email(None, safe_return(request.query(req, "return"))))
     router.Signin, Post -> start_signin(req)
     router.SigninVerify, Post -> finish_signin(req)
     router.SigninVerify, Get -> promise.resolve(Redirect("/signin", None))
@@ -242,14 +243,15 @@ pub fn handle(req: Request) -> Promise(Response) {
 // --- sign in ---------------------------------------------------------------
 
 fn start_signin(req: Request) -> Promise(Response) {
+  let back = safe_return(request.field(req, "return"))
   case request.field(req, "email") {
-    None -> auth_page(400, signin.ask_email(Some("Enter an email address.")))
+    None -> auth_page(400, signin.ask_email(Some("Enter an email address."), back))
     Some(email) -> {
       use result <- promise.await(auth.request_email_code(email))
       case result {
-        Ok(_) -> auth_page(200, signin.ask_code(email, None))
+        Ok(_) -> auth_page(200, signin.ask_code(email, None, back))
         Error(err) ->
-          auth_page(status_for(err), signin.ask_email(Some(explain(err).1)))
+          auth_page(status_for(err), signin.ask_email(Some(explain(err).1), back))
       }
     }
   }
@@ -259,26 +261,36 @@ fn finish_signin(req: Request) -> Promise(Response) {
   case request.field(req, "email"), request.field(req, "code") {
     Some(email), Some(code) -> {
       use result <- promise.await(auth.verify_email_code(email, code))
+      let back =
+        option.unwrap(safe_return(request.field(req, "return")), "/")
       case result {
-        Ok(session) -> promise.resolve(Redirect("/", Some(session.token)))
+        Ok(session) -> promise.resolve(Redirect(back, Some(session.token)))
         // A wrong code is a 4xx from upstream, not an outage: keep the visitor
         // on the code step with the address they already typed.
         Error(HttpError(status, _)) if status < 500 ->
           page(
             200,
-            signin.ask_code(email, Some("That code didn't work.")),
+            signin.ask_code(
+              email,
+              Some("That code didn't work."),
+              safe_return(request.field(req, "return")),
+            ),
             False,
           )
         Error(err) ->
           page(
             status_for(err),
-            signin.ask_code(email, Some(explain(err).1)),
+            signin.ask_code(
+              email,
+              Some(explain(err).1),
+              safe_return(request.field(req, "return")),
+            ),
             False,
           )
       }
     }
     Some(email), None ->
-      auth_page(400, signin.ask_code(email, Some("Enter the code.")))
+      auth_page(400, signin.ask_code(email, Some("Enter the code."), safe_return(request.field(req, "return"))))
     None, _ -> promise.resolve(Redirect("/signin", None))
   }
 }
@@ -596,3 +608,22 @@ fn serve(
 
 @external(javascript, "../sonic_ffi.mjs", "host")
 fn host() -> String
+
+/// Only same-site paths are accepted as a post-sign-in destination.
+///
+/// `return` arrives in the URL, so anything absolute would let a link that
+/// looks like our sign-in page hand the visitor to someone else's site once
+/// they have signed in. A leading `//` is protocol-relative and is absolute
+/// too, which is the case that a naive "starts with /" check lets through.
+pub fn safe_return(value: Option(String)) -> Option(String) {
+  case value {
+    Some(path) ->
+      case
+        string.starts_with(path, "/") && !string.starts_with(path, "//")
+      {
+        True -> Some(path)
+        False -> None
+      }
+    None -> None
+  }
+}
