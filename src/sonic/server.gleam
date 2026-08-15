@@ -149,22 +149,46 @@ pub fn handle(req: Request) -> Promise(Response) {
       render(group_home_page(handle, req.token, tab_of(req)), signed_in)
     router.Schedule(handle), _ ->
       render(
-        schedule_page(handle, req.token, "list", schedule.list_view),
+        schedule_page(
+          handle,
+          req.token,
+          "list",
+          request.query(req, "start_date"),
+          schedule.list_view,
+        ),
         signed_in,
       )
     router.ScheduleCompact(handle), _ ->
       render(
-        schedule_page(handle, req.token, "compact", schedule.compact_view),
+        schedule_page(
+          handle,
+          req.token,
+          "compact",
+          request.query(req, "start_date"),
+          schedule.compact_view,
+        ),
         signed_in,
       )
     router.ScheduleVenue(handle), _ ->
       render(
-        schedule_page(handle, req.token, "venue", schedule.venue_view),
+        schedule_page(
+          handle,
+          req.token,
+          "venue",
+          request.query(req, "start_date"),
+          schedule.venue_view,
+        ),
         signed_in,
       )
     router.ScheduleWeek(handle), _ ->
       render(
-        schedule_page(handle, req.token, "week", schedule.week_view),
+        schedule_page(
+          handle,
+          req.token,
+          "week",
+          request.query(req, "start_date"),
+          schedule.week_view,
+        ),
         signed_in,
       )
     router.Venues(handle), _ ->
@@ -356,7 +380,8 @@ fn schedule_page(
   handle: String,
   token: Option(String),
   view: String,
-  layout: fn(GroupDetail, Page(Event)) -> Element(msg),
+  start_date: Option(String),
+  layout: fn(GroupDetail, Option(String), Page(Event)) -> Element(msg),
 ) -> Promise(Result(Element(msg), ApiError)) {
   use group_result <- promise.await(group.detail(handle: handle, auth: token))
 
@@ -364,7 +389,8 @@ fn schedule_page(
     Error(err) -> promise.resolve(Error(err))
     Ok(found) -> {
       let zone = option.unwrap(found.timezone, "UTC")
-      let #(from, to) = schedule_interval(zone, view)
+      let anchor = option.unwrap(start_date, "")
+      let #(from, to) = schedule_interval(zone, view, anchor)
       use events_result <- promise.map(group.schedule_events(
         handle: handle,
         from: from,
@@ -373,7 +399,7 @@ fn schedule_page(
         auth: token,
       ))
       case events_result {
-        Ok(page) -> Ok(layout(found, page))
+        Ok(page) -> Ok(layout(found, start_date, page))
         Error(err) -> Error(err)
       }
     }
@@ -381,7 +407,11 @@ fn schedule_page(
 }
 
 @external(javascript, "../sonic_ffi.mjs", "schedule_interval")
-fn schedule_interval(zone: String, view: String) -> #(String, String)
+fn schedule_interval(
+  zone: String,
+  view: String,
+  start_date: String,
+) -> #(String, String)
 
 fn profile_page(
   handle: String,

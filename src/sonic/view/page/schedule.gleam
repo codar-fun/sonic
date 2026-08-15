@@ -36,24 +36,41 @@ pub type Layout {
   WeekLayout
 }
 
-pub fn list_view(group: GroupDetail, events: Page(Event)) -> Element(msg) {
-  view(group, events, ListLayout)
+pub fn list_view(
+  group: GroupDetail,
+  anchor: Option(String),
+  events: Page(Event),
+) -> Element(msg) {
+  view(group, anchor, events, ListLayout)
 }
 
-pub fn compact_view(group: GroupDetail, events: Page(Event)) -> Element(msg) {
-  view(group, events, CompactLayout)
+pub fn compact_view(
+  group: GroupDetail,
+  anchor: Option(String),
+  events: Page(Event),
+) -> Element(msg) {
+  view(group, anchor, events, CompactLayout)
 }
 
-pub fn venue_view(group: GroupDetail, events: Page(Event)) -> Element(msg) {
-  view(group, events, VenueLayout)
+pub fn venue_view(
+  group: GroupDetail,
+  anchor: Option(String),
+  events: Page(Event),
+) -> Element(msg) {
+  view(group, anchor, events, VenueLayout)
 }
 
-pub fn week_view(group: GroupDetail, events: Page(Event)) -> Element(msg) {
-  view(group, events, WeekLayout)
+pub fn week_view(
+  group: GroupDetail,
+  anchor: Option(String),
+  events: Page(Event),
+) -> Element(msg) {
+  view(group, anchor, events, WeekLayout)
 }
 
 fn view(
   group: GroupDetail,
+  anchor: Option(String),
   events: Page(Event),
   layout: Layout,
 ) -> Element(msg) {
@@ -63,9 +80,9 @@ fn view(
       html.div([attribute.class("schedule-bg")], []),
       html.div([attribute.class("page-width z-10 relative")], [
         title_row(group),
-        tool_bar(group, layout),
+        tool_bar(group, anchor, layout),
         case layout {
-          WeekLayout -> week_grid(group, events)
+          WeekLayout -> week_grid(group, anchor, events)
           _ -> body(events, layout)
         },
       ]),
@@ -100,14 +117,35 @@ fn title_row(group: GroupDetail) -> Element(msg) {
 /// Month label and the view switcher. Upstream also carries month arrows and a
 /// Filter panel; both drive state this page does not hold yet, and a control
 /// that visibly does nothing is worse than one that is not there.
-fn tool_bar(group: GroupDetail, layout: Layout) -> Element(msg) {
+fn tool_bar(
+  group: GroupDetail,
+  anchor: Option(String),
+  layout: Layout,
+) -> Element(msg) {
+  let zone = option.unwrap(group.timezone, "UTC")
+  let at = option.unwrap(anchor, "")
+
   html.div(
     [attribute.class("flex flex-row justify-between items-center flex-wrap")],
     [
-      html.div(
-        [attribute.class("schedule-month text-base sm:text-lg mr-2 font-semibold")],
-        [element.text(month_label(option.unwrap(group.timezone, "UTC")))],
-      ),
+      html.div([attribute.class("flex-row-item-center")], [
+        html.div(
+          [
+            attribute.class(
+              "schedule-month text-base sm:text-lg mr-2 font-semibold",
+            ),
+          ],
+          [element.text(month_label(zone, at))],
+        ),
+        // Plain links, not buttons: moving a week is a different URL upstream
+        // too (`start_date`), so the arrows work with no runtime and the
+        // resulting view is shareable.
+        html.div([attribute.class("flex-row-item-center")], [
+          step_link(group, layout, schedule_step(zone, view_key(layout), at, -1), "uil-angle-left"),
+          step_link(group, layout, "", "uil-circle"),
+          step_link(group, layout, schedule_step(zone, view_key(layout), at, 1), "uil-angle-right"),
+        ]),
+      ]),
       html.div(
         [
           attribute.class(
@@ -134,6 +172,38 @@ fn tool_bar(group: GroupDetail, layout: Layout) -> Element(msg) {
       ),
     ],
   )
+}
+
+/// One arrow. An empty date drops the parameter, which is how the middle dot
+/// returns to today.
+fn step_link(
+  group: GroupDetail,
+  layout: Layout,
+  date: String,
+  glyph: String,
+) -> Element(msg) {
+  let base = "/event/" <> handle(group) <> "/schedule/" <> view_key(layout)
+  html.a(
+    [
+      attribute.href(case date {
+        "" -> base
+        value -> base <> "?start_date=" <> value
+      }),
+      attribute.class(
+        "leading-7 h-7 rounded-lg active:scale-95 cursor-pointer hover:bg-gray-200 text-3xl w-12 flex flex-row justify-center items-center",
+      ),
+    ],
+    [html.i([attribute.class(glyph <> " leading-7")], [])],
+  )
+}
+
+fn view_key(layout: Layout) -> String {
+  case layout {
+    ListLayout -> "list"
+    CompactLayout -> "compact"
+    VenueLayout -> "venue"
+    WeekLayout -> "week"
+  }
 }
 
 fn switcher_tab(
@@ -184,8 +254,17 @@ fn body(events: Page(Event), layout: Layout) -> Element(msg) {
 /// Fixed 1000px wide and horizontally scrollable, as upstream — seven readable
 /// columns do not fit a phone, and squeezing them to fit makes all seven
 /// unreadable instead of six off-screen.
-fn week_grid(group: GroupDetail, events: Page(Event)) -> Element(msg) {
-  let days = schedule_days(option.unwrap(group.timezone, "UTC"), "week")
+fn week_grid(
+  group: GroupDetail,
+  anchor: Option(String),
+  events: Page(Event),
+) -> Element(msg) {
+  let days =
+    schedule_days(
+      option.unwrap(group.timezone, "UTC"),
+      "week",
+      option.unwrap(anchor, ""),
+    )
   let by_day = event_card.group_by_date(events.data)
 
   html.div([attribute.class("overflow-x-auto pb-4")], [
@@ -516,10 +595,22 @@ fn first_present(values: List(Option(String))) -> Option(String) {
 }
 
 @external(javascript, "../../../sonic_ffi.mjs", "month_label")
-fn month_label(zone: String) -> String
+fn month_label(zone: String, start_date: String) -> String
 
 @external(javascript, "../../../sonic_ffi.mjs", "schedule_days")
-fn schedule_days(zone: String, view: String) -> List(String)
+fn schedule_days(
+  zone: String,
+  view: String,
+  start_date: String,
+) -> List(String)
+
+@external(javascript, "../../../sonic_ffi.mjs", "schedule_step")
+fn schedule_step(
+  zone: String,
+  view: String,
+  start_date: String,
+  direction: Int,
+) -> String
 
 @external(javascript, "../../../sonic_ffi.mjs", "weekday_label")
 fn weekday_label(date: String) -> String

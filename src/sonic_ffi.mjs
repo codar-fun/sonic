@@ -286,9 +286,12 @@ export function zone_label(iso, zone) {
 // different day from "today" in UTC for seven hours out of every twenty-four,
 // and a schedule that starts on the wrong day is wrong for everyone reading it
 // from the place the events happen.
-export function schedule_interval(zone, view) {
+export function schedule_interval(zone, view, startDate) {
   const tz = zone || "UTC";
-  const today = zonedToday(tz);
+  // An explicit start_date anchors the window; otherwise it is anchored to
+  // today in the group's zone. This is what makes the arrows plain links —
+  // moving a week is a different URL, not client state.
+  const today = startDate ? parseDate(startDate) ?? zonedToday(tz) : zonedToday(tz);
   if (view === "week" || view === "list") {
     // Monday, not Sunday: upstream sets `weekStart: 1` on its dayjs locale, so
     // a Sunday start shifted every heading by a day.
@@ -304,8 +307,8 @@ export function schedule_interval(zone, view) {
 // The week grid needs all seven columns whether or not anything is scheduled
 // on a given day, so it cannot derive them from the events it received — a
 // quiet Tuesday would simply vanish and shift the rest of the week left.
-export function schedule_days(zone, view) {
-  const [from, to] = schedule_interval(zone, view);
+export function schedule_days(zone, view, startDate) {
+  const [from, to] = schedule_interval(zone, view, startDate);
   const days = [];
   let current = new Date(`${from}T00:00:00Z`);
   const last = new Date(`${to}T00:00:00Z`);
@@ -314,6 +317,22 @@ export function schedule_days(zone, view) {
     current = addDays(current, 1);
   }
   return List.fromArray(days);
+}
+
+// A YYYY-MM-DD string as a UTC-midnight Date, or null if it is not one.
+function parseDate(text) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+  const d = new Date(`${text}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+// The window shifted one step earlier or later: a week for the week and list
+// views, a day for compact and venue. Returned as the date to anchor the next
+// URL to, so the arrows are links.
+export function schedule_step(zone, view, startDate, direction) {
+  const [from] = schedule_interval(zone, view, startDate);
+  const span = view === "week" || view === "list" ? 7 : 1;
+  return isoDate(addDays(new Date(`${from}T00:00:00Z`), span * direction));
 }
 
 // "Mon 10" — a week-grid column header.
@@ -332,9 +351,9 @@ export function weekday_label(date) {
 }
 
 // "2026 August" — the schedule's month label.
-export function month_label(zone) {
+export function month_label(zone, startDate) {
   const tz = zone || "UTC";
-  const today = zonedToday(tz);
+  const today = startDate ? parseDate(startDate) ?? zonedToday(tz) : zonedToday(tz);
   const month = new Intl.DateTimeFormat("en-US", {
     month: "long",
     timeZone: "UTC",
