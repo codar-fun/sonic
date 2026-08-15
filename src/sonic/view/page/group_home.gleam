@@ -19,8 +19,13 @@ import lustre/element.{type Element}
 import lustre/element/html
 import sonic/api/types.{type Event, type GroupDetail, type Page}
 import sonic/view/event_card
+import sonic/view/image
 
-pub fn view(group: GroupDetail, events: Page(Event)) -> Element(msg) {
+pub fn view(
+  group: GroupDetail,
+  events: Page(Event),
+  tab: String,
+) -> Element(msg) {
   html.div(
     [
       attribute.class(
@@ -29,7 +34,7 @@ pub fn view(group: GroupDetail, events: Page(Event)) -> Element(msg) {
     ],
     [
       html.div([attribute.class("flex-1 md:max-w-[648px] order-2 md:order-1")], [
-        tabs(group),
+        tabs(group, tab),
         search_row(group),
         event_card.list(events),
       ]),
@@ -47,20 +52,30 @@ pub fn view(group: GroupDetail, events: Page(Event)) -> Element(msg) {
 
 /// Upcoming / Past. Links rather than buttons, so the choice survives without
 /// JavaScript; nothing reads the parameter yet, so neither is marked current.
-fn tabs(group: GroupDetail) -> Element(msg) {
+/// Upcoming is the default, as upstream: someone arriving at a group wants to
+/// know what is coming, not what they missed. The current tab is the dark one.
+fn tabs(group: GroupDetail, current: String) -> Element(msg) {
   let base = "text-2xl font-semibold mr-4 cursor-pointer"
+  let dim = base <> " text-gray-400"
+
   html.div([attribute.class("flex-row-item-center mb-4")], [
     html.a(
       [
         attribute.href(group_path(group) <> "?tab=upcoming"),
-        attribute.class(base <> " text-gray-400"),
+        attribute.class(case current {
+          "past" -> dim
+          _ -> base
+        }),
       ],
       [element.text("Upcoming")],
     ),
     html.a(
       [
         attribute.href(group_path(group) <> "?tab=past"),
-        attribute.class(base),
+        attribute.class(case current {
+          "past" -> base
+          _ -> dim
+        }),
       ],
       [element.text("Past")],
     ),
@@ -117,13 +132,18 @@ fn sidebar(group: GroupDetail) -> Element(msg) {
       "bg-[#272928] text-white",
     ]),
     about(group.bio),
+    participate(),
   ])
 }
 
 fn identity(group: GroupDetail) -> Element(msg) {
   html.div([attribute.class("flex-row-item-center justify-between mb-3")], [
     html.div([attribute.class("flex-row-item-center min-w-0")], [
-      avatar(first_present([group.image_url, group.logo_url])),
+      image.avatar_or_default(
+        first_present([group.image_url, group.logo_url]),
+        group.id,
+        "w-6 h-6 rounded-full",
+      ),
       html.div([attribute.class("font-semibold ml-2 truncate")], [
         element.text(group_name(group)),
       ]),
@@ -158,6 +178,32 @@ fn action(
     [
       html.i([attribute.class(glyph <> " mr-2")], []),
       element.text(label),
+    ],
+  )
+}
+
+/// Joining is a write path and is not built, so this points at sign-in exactly
+/// as upstream does for a signed-out visitor.
+fn participate() -> Element(msg) {
+  html.div(
+    [
+      attribute.class(
+        "rounded-lg p-4 mt-3 flex flex-col items-center border border-dashed border-gray-200",
+      ),
+    ],
+    [
+      html.div([attribute.class("text-sm mb-3")], [
+        element.text("Sign in to participate in a fun event"),
+      ]),
+      html.a(
+        [
+          attribute.href("/signin"),
+          attribute.class(
+            "w-full text-center rounded-lg py-3 font-semibold bg-[#7ff7ce]",
+          ),
+        ],
+        [element.text("Sign In")],
+      ),
     ],
   )
 }

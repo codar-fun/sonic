@@ -115,7 +115,7 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.BadgeClassDetail(id), _ ->
       render(badge_class_page(id, req.token), signed_in)
     router.GroupHome(handle), _ ->
-      render(group_home_page(handle, req.token), signed_in)
+      render(group_home_page(handle, req.token, tab_of(req)), signed_in)
     router.Schedule(handle), _ ->
       render(schedule_page(handle, req.token, schedule.list_view), signed_in)
     router.ScheduleCompact(handle), _ ->
@@ -235,18 +235,35 @@ fn event_detail_page(
 /// Two requests, run concurrently: the group and its events do not depend on
 /// each other, so waiting for them in sequence would double the page's latency
 /// for no reason.
+/// `upcoming` unless asked otherwise — arriving at a group should show what is
+/// coming, not what was missed.
+fn tab_of(req: Request) -> String {
+  case request.query(req, "tab") {
+    Some("past") -> "past"
+    _ -> "upcoming"
+  }
+}
+
 fn group_home_page(
   handle: String,
   token: Option(String),
+  tab: String,
 ) -> Promise(Result(Element(msg), ApiError)) {
   let group = group.detail(handle: handle, auth: token)
-  let events = group.events(handle: handle, page: 1, limit: 25, auth: token)
+  let events =
+    group.events(
+      handle: handle,
+      page: 1,
+      limit: 25,
+      collection: tab,
+      auth: token,
+    )
 
   use group_result <- promise.await(group)
   use events_result <- promise.map(events)
 
   case group_result, events_result {
-    Ok(found), Ok(page) -> Ok(group_home.view(found, page))
+    Ok(found), Ok(page) -> Ok(group_home.view(found, page, tab))
     Error(err), _ -> Error(err)
     _, Error(err) -> Error(err)
   }
@@ -293,7 +310,14 @@ fn schedule_page(
   layout: fn(GroupDetail, Page(Event)) -> Element(msg),
 ) -> Promise(Result(Element(msg), ApiError)) {
   let detail = group.detail(handle: handle, auth: token)
-  let events = group.events(handle: handle, page: 1, limit: 100, auth: token)
+  let events =
+    group.events(
+      handle: handle,
+      page: 1,
+      limit: 100,
+      collection: "past",
+      auth: token,
+    )
 
   use group_result <- promise.await(detail)
   use events_result <- promise.map(events)

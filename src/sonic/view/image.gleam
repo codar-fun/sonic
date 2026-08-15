@@ -9,6 +9,9 @@
 //// Sizes here mirror the ones upstream requests: 900 wide for banners,
 //// 454×296 for cards, 28×28 for avatars.
 
+import gleam/int
+import gleam/list
+import gleam/option
 import gleam/string
 import lustre/attribute.{type Attribute, attribute}
 import lustre/element.{type Element}
@@ -86,6 +89,38 @@ pub fn avatar_img(src: String, classes: String) -> Element(msg) {
     attribute.src(avatar(src)),
     attribute.alt(""),
     attribute.class(classes),
+    ..lazy()
+  ])
+}
+
+/// A deterministic default avatar for anything without a picture.
+///
+/// The same id always maps to the same face, so a card does not change
+/// appearance between page loads. Six shipped images, matching upstream.
+pub fn default_avatar(id: String) -> String {
+  let sum =
+    id
+    |> string.to_utf_codepoints
+    |> list.fold(0, fn(acc, point) { acc + string.utf_codepoint_to_int(point) })
+  "/static/images/default_avatar/avatar_" <> int.to_string(sum % 6) <> ".png"
+}
+
+/// An avatar that always renders something: the resized picture when there is
+/// one, a stable default otherwise. Grey circles were appearing wherever a
+/// profile had no image.
+pub fn avatar_or_default(
+  url: option.Option(String),
+  id: String,
+  classes: String,
+) -> Element(msg) {
+  let src = case url {
+    option.Some(value) if value != "" -> avatar(value)
+    _ -> default_avatar(id)
+  }
+  html.img([
+    attribute.src(src),
+    attribute.alt(""),
+    attribute.class(classes <> " object-cover shrink-0"),
     ..lazy()
   ])
 }

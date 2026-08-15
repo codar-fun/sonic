@@ -36,12 +36,16 @@ pub fn events(
   handle handle: String,
   page page: Int,
   limit limit: Int,
+  collection collection: String,
   auth auth: Auth,
 ) -> Promise(ApiResult(Page(Event))) {
   client.get(
     path: "/events",
     query: [
       #("group_id", Some(handle)),
+      // The SDK calls this `collection`; upcoming/past is a server-side split,
+      // not something to filter client-side against a clock we do not have.
+      #("collection", Some(collection)),
       #("page", Some(int.to_string(page))),
       #("limit", Some(int.to_string(limit))),
     ],

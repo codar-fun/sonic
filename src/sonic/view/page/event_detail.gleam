@@ -18,6 +18,7 @@ import lustre/element/html
 import sonic/api/types.{type Event}
 import sonic/view/badge
 import sonic/view/event_time
+import sonic/view/image
 
 pub fn view(event: Event) -> Element(msg) {
   html.div([attribute.class("page-width !pt-4 !pb-12")], [
@@ -59,7 +60,11 @@ fn top_bar(event: Event) -> Element(msg) {
               attribute.class("flex-row-item-center"),
             ],
             [
-              avatar(group.image_url, "w-6 h-6"),
+              image.avatar_or_default(
+                group.image_url,
+                group.id,
+                "w-6 h-6 rounded-full",
+              ),
               html.div([attribute.class("font-semibold ml-2")], [
                 element.text(name_of(group.nickname, group.name, group.id)),
               ]),
@@ -133,7 +138,9 @@ fn status_badge(event: Event) -> Element(msg) {
 /// upstream shows all of them, not just the owner.
 fn host_row(event: Event) -> Element(msg) {
   let owner = case event.owner {
-    Some(o) -> [person(o.image_url, name_of(o.nickname, o.name, o.id), "Host")]
+    Some(o) -> [
+      person(o.image_url, o.id, name_of(o.nickname, o.name, o.id), "Host"),
+    ]
     None -> []
   }
 
@@ -141,6 +148,7 @@ fn host_row(event: Event) -> Element(msg) {
     list.map(event.roles, fn(role) {
       person(
         role.image_url,
+        option_text(role.display_name),
         option_text(role.display_name),
         label_for(role.role),
       )
@@ -162,9 +170,14 @@ fn host_row(event: Event) -> Element(msg) {
   }
 }
 
-fn person(image: Option(String), name: String, role: String) -> Element(msg) {
+fn person(
+  picture: Option(String),
+  id: String,
+  name: String,
+  role: String,
+) -> Element(msg) {
   html.div([attribute.class("flex-row-item-center shrink-0")], [
-    avatar(image, "w-10 h-10"),
+    image.avatar_or_default(picture, id, "w-10 h-10 rounded-full"),
     html.div([attribute.class("ml-2")], [
       html.div([attribute.class("font-semibold")], [element.text(name)]),
       html.div([attribute.class("text-sm text-gray-400")], [element.text(role)]),

@@ -11,7 +11,58 @@ import lustre/element.{type Element}
 import lustre/element/html
 import sonic/ui/menu
 
+/// What a page tells crawlers and chat clients about itself.
+///
+/// Defaults describe the site; pages that are about one thing (an event, a
+/// group) pass their own, because a link to an event that previews as "Social
+/// Layer" is indistinguishable from a link to the home page.
+pub type Meta {
+  Meta(title: String, description: String, image: String)
+}
+
+pub fn site_meta() -> Meta {
+  Meta(
+    title: "Social Layer",
+    description: "Social Layer is a decentralized event and community platform.",
+    image: "/static/images/logo_horizontal.svg",
+  )
+}
+
+fn open_graph(meta: Meta) -> List(Element(msg)) {
+  [
+    html.meta([
+      attribute.name("description"),
+      attribute.content(meta.description),
+    ]),
+    html.meta([attribute("property", "og:type"), attribute.content("website")]),
+    html.meta([attribute("property", "og:title"), attribute.content(meta.title)]),
+    html.meta([
+      attribute("property", "og:description"),
+      attribute.content(meta.description),
+    ]),
+    html.meta([attribute("property", "og:image"), attribute.content(meta.image)]),
+    html.meta([
+      attribute.name("twitter:card"),
+      attribute.content("summary_large_image"),
+    ]),
+    html.meta([attribute.name("twitter:title"), attribute.content(meta.title)]),
+    html.meta([
+      attribute.name("twitter:description"),
+      attribute.content(meta.description),
+    ]),
+    html.meta([attribute.name("twitter:image"), attribute.content(meta.image)]),
+  ]
+}
+
 pub fn document(body: Element(msg), signed_in: Bool) -> Element(msg) {
+  document_with(body, signed_in, site_meta())
+}
+
+pub fn document_with(
+  body: Element(msg),
+  signed_in: Bool,
+  meta: Meta,
+) -> Element(msg) {
   html.html([attribute("lang", "en")], [
     html.head([], [
       html.meta([attribute("charset", "utf-8")]),
@@ -24,11 +75,15 @@ pub fn document(body: Element(msg), signed_in: Bool) -> Element(msg) {
           "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
         ),
       ]),
-      html.title([], "Social Layer"),
+      html.title([], meta.title),
       html.link([
         attribute.rel("icon"),
         attribute.type_("image/svg+xml"),
-        attribute.href("/static/images/logo_horizontal.svg"),
+        attribute.href("/static/images/favicon.svg"),
+      ]),
+      html.link([
+        attribute.rel("apple-touch-icon"),
+        attribute.href("/static/images/sola_logo_compact.png"),
       ]),
       html.link([
         attribute.rel("stylesheet"),
@@ -44,6 +99,7 @@ pub fn document(body: Element(msg), signed_in: Bool) -> Element(msg) {
         ],
         "",
       ),
+      ..open_graph(meta)
     ]),
     html.body([attribute.class("antialiased")], [
       html.div([attribute.class("min-h-[100svh]")], [
