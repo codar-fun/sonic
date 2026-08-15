@@ -65,23 +65,35 @@ fn top_bar(event: Event) -> Element(msg) {
                 group.id,
                 "w-6 h-6 rounded-full",
               ),
-              html.div([attribute.class("font-semibold ml-2")], [
-                element.text(name_of(group.nickname, group.name, group.id)),
-              ]),
+              // Truncated, not wrapped: a long community name pushed the
+              // Share control off the row.
+              html.span(
+                [
+                  attribute.class(
+                    "font-semibold font-sm overflow-hidden overflow-ellipsis whitespace-nowrap max-w-[120px] sm:max-w-max",
+                  ),
+                ],
+                [element.text(name_of(group.nickname, group.name, group.id))],
+              ),
             ],
           )
         None -> html.div([], [])
       },
+      // Points at the share page. This linked to /event/detail/<id> — the
+      // page it is already on — so the button did nothing.
       html.a(
         [
-          attribute.href("/event/detail/" <> event.id),
+          attribute.href("/event/share/" <> event.id),
           attribute.class(
-            "flex-row-item-center bg-[#f1f1f1] rounded-lg px-3 py-2 text-sm font-semibold",
+            "cursor-pointer hover:bg-gray-300 flex-row-item-center ml-2 h-8 font-semibold text-base bg-gray-200 rounded-lg px-2",
           ),
         ],
         [
-          html.i([attribute.class("uil-external-link-alt mr-1")], []),
-          element.text("Share"),
+          html.i([attribute.class("uil-external-link-alt ")], []),
+          // Icon-only on narrow screens, where the label would crowd the row.
+          html.span([attribute.class("sm:inline hidden ml-1 ")], [
+            element.text("Share"),
+          ]),
         ],
       ),
     ],
@@ -352,24 +364,18 @@ fn comments() -> Element(msg) {
 
 fn cover(url: Option(String)) -> Element(msg) {
   case url {
+    // Shown whole rather than cropped to a square: this is the event's own
+    // artwork, and a centre-crop cut the ends off wide covers.
     Some(src) if src != "" ->
-      html.div(
-        [attribute.class("w-[324px] h-[324px] overflow-hidden mx-auto")],
-        [
-          html.img([
-            attribute.src(src),
-            attribute.alt(""),
-            attribute.class("w-full h-full object-cover rounded-lg"),
-          ]),
-        ],
-      )
+      html.img([
+        attribute.src(image.banner(src)),
+        attribute.alt(""),
+        attribute.class("max-w-[450px] w-full mx-auto"),
+        ..image.eager()
+      ])
     _ ->
       html.div(
-        [
-          attribute.class(
-            "w-[324px] h-[324px] overflow-hidden mx-auto rounded-lg bg-gray-100",
-          ),
-        ],
+        [attribute.class("max-w-[450px] w-full h-[324px] mx-auto bg-gray-100")],
         [],
       )
   }
@@ -381,18 +387,23 @@ fn participate() -> Element(msg) {
   html.div(
     [
       attribute.class(
-        "rounded-lg p-4 mt-4 flex flex-col items-center border border-dashed border-gray-200",
+        "flex flex-col justify-center items-center rounded-lg border-dashed border-2 p-3 my-3",
       ),
     ],
     [
-      html.div([attribute.class("text-sm mb-3")], [
+      html.img([
+        attribute.src("/static/images/balloon.png"),
+        attribute.alt(""),
+        attribute.class("w-12"),
+      ]),
+      html.div([attribute.class("text-sm font-semibold my-2")], [
         element.text("Sign in to participate in a fun event"),
       ]),
       html.a(
         [
           attribute.href("/signin"),
           attribute.class(
-            "w-full text-center rounded-lg py-3 font-semibold bg-[#7ff7ce]",
+            "font-semibold inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg ring-offset-background transition-colors bg-special text-special-foreground hover:opacity-80 h-11 px-4 py-2 w-full",
           ),
         ],
         [element.text("Sign In")],
