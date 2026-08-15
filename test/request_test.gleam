@@ -68,3 +68,23 @@ pub fn similar_cookie_names_do_not_match_test() {
   request.token_from_cookies("not_auth_token=evil") |> should.equal(None)
   request.token_from_cookies("auth_token_x=evil") |> should.equal(None)
 }
+
+/// The search page reads its keyword from the query string, so this is the
+/// path where a wrong answer silently returns "no results".
+pub fn reads_query_parameters_test() {
+  let req = fn(path) {
+    request.Request(method: request.Get, path: path, form: [], token: None)
+  }
+  request.query(req("/search?keyword=eth"), "keyword")
+  |> should.equal(Some("eth"))
+
+  request.query(req("/search?a=1&keyword=zuzalu&b=2"), "keyword")
+  |> should.equal(Some("zuzalu"))
+
+  // Encoded values must decode, or a two-word search finds nothing.
+  request.query(req("/search?keyword=hello%20world"), "keyword")
+  |> should.equal(Some("hello world"))
+
+  request.query(req("/search"), "keyword") |> should.equal(None)
+  request.query(req("/search?keyword="), "keyword") |> should.equal(None)
+}

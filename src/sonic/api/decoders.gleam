@@ -12,9 +12,10 @@ import gleam/option.{type Option, None}
 import sonic/api/types.{
   type Badge, type BadgeClass, type Discover, type Event, type Group,
   type GroupDetail, type Meta, type Page, type Place, type PopupCity,
-  type Profile, type Track, type UserProfile, type Venue, type VenueDetail,
-  Badge, BadgeClass, Discover, Event, Group, GroupDetail, Meta, Page, Place,
-  PopupCity, Profile, Track, UserProfile, Venue, VenueDetail,
+  type Profile, type SearchResults, type Track, type UserProfile, type Venue,
+  type VenueDetail, Badge, BadgeClass, Discover, Event, Group, GroupDetail, Meta,
+  Page, Place, PopupCity, Profile, SearchResults, Track, UserProfile, Venue,
+  VenueDetail,
 }
 
 /// `optional_field` with a `None` default: tolerates both `null` and absent.
@@ -295,4 +296,14 @@ pub fn venue_detail() -> Decoder(VenueDetail) {
     featured_image_url:,
     tags:,
   ))
+}
+
+/// Every list defaults to empty: a keyword matching only events must still
+/// render, rather than failing because `badge_classes` was omitted.
+pub fn search_results() -> Decoder(SearchResults) {
+  use events <- opt_or("events", [], decode.list(event()))
+  use groups <- opt_or("groups", [], decode.list(group()))
+  use users <- opt_or("users", [], decode.list(user_profile()))
+  use badge_classes <- opt_or("badge_classes", [], decode.list(badge_class()))
+  decode.success(SearchResults(events:, groups:, users:, badge_classes:))
 }

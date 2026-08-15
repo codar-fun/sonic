@@ -122,9 +122,25 @@ fn nav(signed_in: Bool) -> Element(msg) {
 
 fn account(signed_in: Bool) -> Element(msg) {
   html.div([attribute.class("flex-row-item-center text-xs relative")], [
-    // The original has a search bar and a language switcher between these
-    // dividers. Both are interactive components still to be built; the
-    // dividers stay so the spacing does not shift when they arrive.
+    // A plain GET form, so search works without JavaScript exactly as the
+    // rest of the site does.
+    html.form(
+      [
+        attribute.method("get"),
+        attribute.action("/search"),
+        attribute.class("flex-row-item-center"),
+      ],
+      [
+        html.input([
+          attribute.type_("search"),
+          attribute.name("keyword"),
+          attribute.placeholder("Search"),
+          attribute.class(
+            "text-xs px-2 py-1 rounded border border-gray-200 w-[120px] sm:w-[160px]",
+          ),
+        ]),
+      ],
+    ),
     html.span([attribute.class("w-[0.5px] h-3 bg-gray-400 mx-2")], []),
     // Rendered server-side in its closed state and hydrated in place, so the
     // menu is usable markup before the bundle arrives rather than a hole. The

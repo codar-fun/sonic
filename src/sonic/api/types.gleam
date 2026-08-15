@@ -215,3 +215,13 @@ pub type VenueDetail {
     tags: List(String),
   )
 }
+
+/// What `/search` returns: four independent result sets for one keyword.
+pub type SearchResults {
+  SearchResults(
+    events: List(Event),
+    groups: List(Group),
+    users: List(UserProfile),
+    badge_classes: List(BadgeClass),
+  )
+}

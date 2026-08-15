@@ -40,6 +40,23 @@ pub type Response {
 /// app is signed in to both during the migration.
 pub const session_cookie = "auth_token"
 
+/// Read a query-string parameter from the request path.
+///
+/// Query parameters are parsed on demand rather than eagerly: only the search
+/// page reads one, and parsing every request's query to serve one route would
+/// be work done for nothing.
+pub fn query(request: Request, name: String) -> Option(String) {
+  case string.split_once(request.path, "?") {
+    Ok(#(_, rest)) ->
+      case list.key_find(parse_form(rest), name) {
+        Ok("") -> None
+        Ok(value) -> Some(value)
+        Error(_) -> None
+      }
+    Error(_) -> None
+  }
+}
+
 /// Read one field from a decoded form.
 pub fn field(request: Request, name: String) -> Option(String) {
   case list.key_find(request.form, name) {

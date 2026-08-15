@@ -34,6 +34,7 @@ import sonic/view/page/event_list
 import sonic/view/page/group_home
 import sonic/view/page/profile
 import sonic/view/page/schedule
+import sonic/view/page/search
 import sonic/view/page/signin
 import sonic/view/page/venues
 import sonic/web/request.{
@@ -108,6 +109,7 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.EventDetail(id), _ ->
       render(event_detail_page(id, req.token), signed_in)
     router.Communities, _ -> render(communities_page(req.token), signed_in)
+    router.Search, _ -> render(search_page(req), signed_in)
     router.BadgeDetail(id), _ -> render(badge_page(id, req.token), signed_in)
     router.BadgeClassDetail(id), _ ->
       render(badge_class_page(id, req.token), signed_in)
@@ -304,6 +306,27 @@ fn venues_page(
         auth: token,
       ))
       venues_result |> map_ok(fn(page) { venues.view(found, page) })
+    }
+  }
+}
+
+fn search_page(req: Request) -> Promise(Result(Element(msg), ApiError)) {
+  let keyword = case request.query(req, "keyword") {
+    Some(value) -> value
+    None -> ""
+  }
+
+  case keyword {
+    // No keyword is not an error and not a request worth making: render the
+    // empty form rather than asking the API about "".
+    "" ->
+      promise.resolve(Ok(search.view("", types.SearchResults([], [], [], []))))
+    _ -> {
+      use result <- promise.map(profile_api.search(
+        keyword: keyword,
+        auth: req.token,
+      ))
+      result |> map_ok(fn(results) { search.view(keyword, results) })
     }
   }
 }

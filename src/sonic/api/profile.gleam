@@ -8,7 +8,9 @@ import gleam/javascript/promise.{type Promise}
 import gleam/option.{Some}
 import sonic/api/client.{type ApiResult, type Auth}
 import sonic/api/decoders
-import sonic/api/types.{type Page, type UserProfile, type VenueDetail}
+import sonic/api/types.{
+  type Page, type SearchResults, type UserProfile, type VenueDetail,
+}
 
 /// `GET /users/:handle`
 pub fn detail(
@@ -33,5 +35,21 @@ pub fn venues(
     query: [#("group_id", Some(group_id)), #("limit", Some(int.to_string(100)))],
     auth: auth,
     expect: decoders.page(of: decoders.venue_detail()),
+  )
+}
+
+/// `GET /search?keyword=…` — events, groups, users and badge classes at once.
+///
+/// The parameter is `keyword`, not `query`: `query` is accepted and silently
+/// matches nothing, which looks like "no results" rather than a mistake.
+pub fn search(
+  keyword keyword: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(SearchResults)) {
+  client.get(
+    path: "/search",
+    query: [#("keyword", Some(keyword))],
+    auth: auth,
+    expect: decoders.search_results(),
   )
 }
