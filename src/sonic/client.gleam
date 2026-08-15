@@ -27,6 +27,7 @@ pub fn main() -> Nil {
   // The dialogs are CSS-only; Escape is the one behaviour CSS cannot express.
   wire_dialog_escape()
   wire_signin_return()
+  wire_wallet_signin()
   Nil
 }
 
@@ -82,3 +83,6 @@ fn wire_dialog_escape() -> Nil
 
 @external(javascript, "../sonic_client_ffi.mjs", "wire_signin_return")
 fn wire_signin_return() -> Nil
+
+@external(javascript, "../sonic_client_ffi.mjs", "wire_wallet_signin")
+fn wire_wallet_signin() -> Nil

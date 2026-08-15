@@ -37,6 +37,15 @@ pub fn ask_email(error: Option(String), return: Option(String)) -> Element(msg) 
       ]),
     ]),
     problem(error),
+    // Where the wallet flow reports a refusal. Rendered empty and hidden so
+    // the client has somewhere to write without creating layout on load.
+    html.div(
+      [
+        attribute.id("signin-problem"),
+        attribute.class("hidden text-sm text-[#b91c1c] mb-3"),
+      ],
+      [],
+    ),
     divider(),
     alternatives(),
   ])
@@ -169,7 +178,8 @@ fn divider() -> Element(msg) {
 fn alternatives() -> Element(msg) {
   html.div([attribute.class("flex flex-col sm:grid sm:gap-2 sm:grid-cols-2")], [
     alternative(google_mark(), "Google Auth"),
-    alternative(
+    alternative_with_id(
+      "wallet-signin",
       html.i([attribute.class("uil-wallet text-xl")], []),
       "Ethereum Wallet",
     ),
@@ -177,9 +187,18 @@ fn alternatives() -> Element(msg) {
 }
 
 fn alternative(icon: Element(msg), label: String) -> Element(msg) {
+  alternative_with_id("", icon, label)
+}
+
+fn alternative_with_id(
+  id: String,
+  icon: Element(msg),
+  label: String,
+) -> Element(msg) {
   html.button(
     [
       attribute.type_("button"),
+      attribute.id(id),
       attribute.class(
         "font-semibold inline-flex items-center whitespace-nowrap rounded-lg ring-offset-background transition-colors border border-foreground bg-background hover:bg-accent hover:opacity-80 h-11 px-4 py-2 w-full justify-center gap-3 font-normal shadow-sm mb-3 sm:mb-0",
       ),

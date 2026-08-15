@@ -26,6 +26,8 @@ pub type Route {
   Profile(handle: String)
   Search
   Signin
+  SigninWallet
+  SigninNonce
   SigninVerify
   Signout
   Health
@@ -73,6 +75,8 @@ pub fn parse(path: String) -> Route {
     ["badge-class", id] -> BadgeClassDetail(id)
     ["signin"] -> Signin
     ["signin", "verify"] -> SigninVerify
+    ["signin", "wallet"] -> SigninWallet
+    ["signin", "nonce"] -> SigninNonce
     ["signout"] -> Signout
     ["healthz"] -> Health
     _ -> NotFound
@@ -101,6 +105,8 @@ pub fn href(route: Route) -> String {
     Search -> "/search"
     Signin -> "/signin"
     SigninVerify -> "/signin/verify"
+    SigninWallet -> "/signin/wallet"
+    SigninNonce -> "/signin/nonce"
     Signout -> "/signout"
     Health -> "/healthz"
     NotFound -> "/404"

@@ -236,6 +236,19 @@ pub fn handle(req: Request) -> Promise(Response) {
       auth_page(200, signin.ask_email(None, safe_return(request.query(req, "return"))))
     router.Signin, Post -> start_signin(req)
     router.SigninVerify, Post -> finish_signin(req)
+    router.SigninWallet, Post -> finish_wallet_signin(req)
+    // Minted per attempt rather than rendered into every sign-in page: the
+    // nonce is single-use with a 15-minute life, and most visitors here are
+    // signing in by email and would never spend it.
+    router.SigninNonce, _ -> {
+      use result <- promise.map(auth.siwe_nonce())
+      case result {
+        Ok(nonce) -> Page(200, nonce)
+        Error(err) -> Page(status_for(err), "")
+      }
+    }
+    // Nothing to show: the wallet route only exists to receive a signature.
+    router.SigninWallet, Get -> promise.resolve(Redirect("/signin", None))
     router.SigninVerify, Get -> promise.resolve(Redirect("/signin", None))
 
     router.Signout, _ -> promise.resolve(ClearSession("/"))
@@ -616,6 +629,42 @@ fn serve(
 
 @external(javascript, "../sonic_ffi.mjs", "host")
 fn host() -> String
+
+/// Sign-In with Ethereum. The signature is produced in the browser and posted
+/// here rather than to the API directly, so the session cookie is set HttpOnly
+/// by the same path as email sign-in instead of living in reachable script.
+fn finish_wallet_signin(req: Request) -> Promise(Response) {
+  let back = option.unwrap(safe_return(request.field(req, "return")), "/")
+
+  case request.field(req, "message"), request.field(req, "signature") {
+    Some(message), Some(signature) -> {
+      use result <- promise.await(auth.verify_wallet(message, signature))
+      case result {
+        Ok(session) -> promise.resolve(Redirect(back, Some(session.token)))
+        // A 4xx here is a rejected signature or a domain the backend does not
+        // allow, not an outage — say so on the sign-in page rather than
+        // rendering a server error.
+        Error(HttpError(status, _)) if status < 500 ->
+          auth_page(
+            200,
+            signin.ask_email(
+              Some("That wallet signature was not accepted."),
+              safe_return(request.field(req, "return")),
+            ),
+          )
+        Error(err) ->
+          auth_page(
+            status_for(err),
+            signin.ask_email(
+              Some(explain(err).1),
+              safe_return(request.field(req, "return")),
+            ),
+          )
+      }
+    }
+    _, _ -> promise.resolve(Redirect("/signin", None))
+  }
+}
 
 /// Only same-site paths are accepted as a post-sign-in destination.
 ///

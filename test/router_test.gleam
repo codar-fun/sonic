@@ -89,3 +89,10 @@ pub fn return_path_must_be_same_site_test() {
   server.safe_return(Some("https://evil.example")) |> should.equal(None)
   server.safe_return(None) |> should.equal(None)
 }
+
+/// The wallet callback is its own route. Without it, /signin/wallet fell
+/// through to NotFound and the signature had nowhere to be posted.
+pub fn wallet_signin_route_test() {
+  router.parse("/signin/wallet") |> should.equal(router.SigninWallet)
+  router.href(router.SigninWallet) |> should.equal("/signin/wallet")
+}

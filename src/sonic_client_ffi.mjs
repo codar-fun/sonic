@@ -209,6 +209,114 @@ export function wire_signin_return() {
   return undefined;
 }
 
+// Sign-In with Ethereum, against an injected wallet.
+//
+// The message follows EIP-4361 and its exact line order and wording matter:
+// the backend parses it with a strict grammar, and it also checks `domain`
+// against its own allowlist — a host that is not on that list is rejected
+// even with a perfectly valid signature. That is what stops a lookalike site
+// from harvesting signatures that work here, and it means this cannot succeed
+// until sonic.sola.town is added to the backend's ALLOWED_SIWE_DOMAINS.
+//
+// The signed message and signature are posted to our own server rather than
+// straight to the API, so the session cookie is set HttpOnly by the same code
+// path as email sign-in instead of being held in reachable JavaScript.
+export function wire_wallet_signin() {
+  const doc = globalThis.document;
+  if (!doc) return undefined;
+  const button = doc.querySelector("#wallet-signin");
+  if (!button) return undefined;
+
+  button.addEventListener("click", async () => {
+    const provider = globalThis.ethereum;
+    if (!provider) {
+      report("No Ethereum wallet found in this browser.");
+      return;
+    }
+    const original = button.textContent;
+    button.textContent = "Check your wallet…";
+    try {
+      const [address] = await provider.request({
+        method: "eth_requestAccounts",
+      });
+      if (!address) throw new Error("No account");
+
+      // The nonce has to come from the server: it remembers what it minted
+      // and rejects a message carrying one it did not issue. A locally
+      // generated random string is well-formed and is answered with
+      // "Invalid or expired nonce".
+      const response = await fetch("/signin/nonce");
+      if (!response.ok) throw new Error("Could not start the sign-in");
+      const nonce = (await response.text()).trim();
+      if (!nonce) throw new Error("Could not start the sign-in");
+
+      const message = siweMessage(address, nonce);
+      const signature = await provider.request({
+        method: "personal_sign",
+        params: [message, address],
+      });
+
+      // A form post, so the reply can Set-Cookie and redirect exactly as the
+      // email flow does.
+      const form = doc.createElement("form");
+      form.method = "post";
+      form.action = "/signin/wallet";
+      for (const [name, value] of [
+        ["message", message],
+        ["signature", signature],
+        ["return", returnPath()],
+      ]) {
+        const field = doc.createElement("input");
+        field.type = "hidden";
+        field.name = name;
+        field.value = value;
+        form.appendChild(field);
+      }
+      doc.body.appendChild(form);
+      form.submit();
+    } catch (err) {
+      button.textContent = original;
+      // 4001 is the wallet's own "user rejected" code; that is a choice, not a
+      // failure worth an error message.
+      if (err?.code !== 4001) {
+        report(err?.message ?? "Could not sign in with that wallet.");
+      }
+    }
+  });
+  return undefined;
+}
+
+function siweMessage(address, nonce) {
+  const { host, origin } = globalThis.location;
+  return `${host} wants you to sign in with your Ethereum account:
+${address}
+
+Sign in with Ethereum to the app.
+
+URI: ${origin}
+Version: 1
+Chain ID: 1
+Nonce: ${nonce}
+Issued At: ${new Date().toISOString()}`;
+}
+
+function returnPath() {
+  const params = new URLSearchParams(globalThis.location.search);
+  const value = params.get("return") ?? "";
+  // Same rule the server applies: same-site paths only, and `//` is
+  // protocol-relative, so absolute in effect.
+  return value.startsWith("/") && !value.startsWith("//") ? value : "";
+}
+
+function report(message) {
+  const doc = globalThis.document;
+  const slot = doc.querySelector("#signin-problem");
+  if (slot) {
+    slot.textContent = message;
+    slot.classList.remove("hidden");
+  }
+}
+
 // Escape closes any open dialog.
 //
 // The dialogs are CSS-only — a hidden checkbox drives them — so opening,

@@ -44,6 +44,46 @@ pub fn verify_email_code(
   )
 }
 
+/// `GET /auth/nonce` — mint a single-use SIWE nonce.
+///
+/// The nonce must come from the server: it remembers what it minted (with a
+/// 15-minute TTL) and rejects any signed message carrying one it did not
+/// issue. A locally generated random string looks perfectly well-formed and is
+/// answered with "Invalid or expired nonce".
+pub fn siwe_nonce() -> Promise(ApiResult(String)) {
+  client.get(
+    path: "/auth/nonce",
+    query: [],
+    auth: None,
+    expect: {
+      use nonce <- decode.field("nonce", decode.string)
+      decode.success(nonce)
+    },
+  )
+}
+
+/// `POST /auth/verify_wallet` — Sign-In with Ethereum.
+///
+/// The message goes up exactly as the wallet signed it. Re-serialising it —
+/// normalising a newline, trimming a space — changes the bytes and the
+/// signature stops verifying, which is why this takes the raw string rather
+/// than the fields it was built from.
+pub fn verify_wallet(
+  message message: String,
+  signature signature: String,
+) -> Promise(ApiResult(Session)) {
+  client.post(
+    path: "/auth/verify_wallet",
+    query: [],
+    auth: None,
+    body: json.object([
+      #("message", json.string(message)),
+      #("signature", json.string(signature)),
+    ]),
+    expect: session(),
+  )
+}
+
 fn session() -> Decoder(Session) {
   use token <- decode.field("token", decode.string)
   use user <- decode.field("user", user())
