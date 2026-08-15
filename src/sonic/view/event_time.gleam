@@ -88,3 +88,46 @@ fn month_name(month: Int) -> String {
     [] -> int.to_string(month)
   }
 }
+
+/// The event's own clock, not UTC.
+///
+/// The API sends UTC and names the zone separately. Rendering the UTC time and
+/// appending the zone name says the wrong thing — 07:30 "Asia/Bangkok" for an
+/// event that starts at 14:30 there. These go through Intl, which carries the
+/// tz database; falling back to the raw formatting if the zone is unknown.
+pub fn in_zone_date(iso: String, zone: Option(String)) -> String {
+  case zone {
+    Some(tz) if tz != "" ->
+      case format_in_zone(iso, tz, "date") {
+        "" -> readable(iso)
+        value -> value
+      }
+    _ -> readable(iso)
+  }
+}
+
+/// `14:30 - 16:00 GMT+7`
+pub fn in_zone_range(
+  start: String,
+  end: String,
+  zone: Option(String),
+) -> String {
+  case zone {
+    Some(tz) if tz != "" ->
+      case
+        format_in_zone(start, tz, "time"),
+        format_in_zone(end, tz, "time"),
+        zone_label(start, tz)
+      {
+        "", _, _ -> range(start, end)
+        from, to, label -> from <> " - " <> to <> " " <> label
+      }
+    _ -> range(start, end)
+  }
+}
+
+@external(javascript, "../../sonic_ffi.mjs", "format_in_zone")
+fn format_in_zone(iso: String, zone: String, pattern: String) -> String
+
+@external(javascript, "../../sonic_ffi.mjs", "zone_label")
+fn zone_label(iso: String, zone: String) -> String

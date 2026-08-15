@@ -10,12 +10,13 @@
 import gleam/dynamic/decode.{type Decoder}
 import gleam/option.{type Option, None}
 import sonic/api/types.{
-  type Badge, type BadgeClass, type Discover, type Event, type Group,
-  type GroupDetail, type Membership, type Meta, type Page, type Place,
-  type PopupCity, type Profile, type SearchResults, type Track, type TrackDetail,
-  type UserProfile, type Venue, type VenueDetail, Badge, BadgeClass, Discover,
-  Event, Group, GroupDetail, Membership, Meta, Page, Place, PopupCity, Profile,
-  SearchResults, Track, TrackDetail, UserProfile, Venue, VenueDetail,
+  type Badge, type BadgeClass, type Discover, type Event, type EventRole,
+  type Group, type GroupDetail, type Membership, type Meta, type Page,
+  type Place, type PopupCity, type Profile, type SearchResults, type Track,
+  type TrackDetail, type UserProfile, type Venue, type VenueDetail, Badge,
+  BadgeClass, Discover, Event, EventRole, Group, GroupDetail, Membership, Meta,
+  Page, Place, PopupCity, Profile, SearchResults, Track, TrackDetail,
+  UserProfile, Venue, VenueDetail,
 }
 
 /// `optional_field` with a `None` default: tolerates both `null` and absent.
@@ -64,9 +65,10 @@ pub fn group() -> Decoder(Group) {
 pub fn place() -> Decoder(Place) {
   use id <- decode.field("id", decode.string)
   use title <- opt("title", decode.string)
+  use address <- opt("address", decode.string)
   use formatted_address <- opt("formatted_address", decode.string)
   use location <- opt("location", decode.string)
-  decode.success(Place(id:, title:, formatted_address:, location:))
+  decode.success(Place(id:, title:, address:, formatted_address:, location:))
 }
 
 pub fn venue() -> Decoder(Venue) {
@@ -95,6 +97,8 @@ pub fn event() -> Decoder(Event) {
   // `image_url` also exists on group/owner and reads ambiguously in views.
   use cover <- opt("image_url", decode.string)
   use notes <- opt("notes", decode.string)
+  use content <- opt("content", decode.string)
+  use roles <- opt_or("event_roles", [], decode.list(event_role()))
   use meeting_url <- opt("meeting_url", decode.string)
   use external_url <- opt("external_url", decode.string)
   use participant_count <- opt_or("participant_count", 0, decode.int)
@@ -117,6 +121,8 @@ pub fn event() -> Decoder(Event) {
     timezone:,
     cover:,
     notes:,
+    content:,
+    roles:,
     meeting_url:,
     external_url:,
     participant_count:,
@@ -130,6 +136,13 @@ pub fn event() -> Decoder(Event) {
     venue:,
     track:,
   ))
+}
+
+pub fn event_role() -> Decoder(EventRole) {
+  use display_name <- opt("display_name", decode.string)
+  use image_url <- opt("image_url", decode.string)
+  use role <- opt("role", decode.string)
+  decode.success(EventRole(display_name:, image_url:, role:))
 }
 
 pub fn meta() -> Decoder(Meta) {

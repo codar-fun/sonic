@@ -34,6 +34,9 @@ pub type Place {
   Place(
     id: String,
     title: Option(String),
+    /// The API calls this `address`; `formatted_address` does not exist and
+    /// silently decoded to None, so the address never rendered.
+    address: Option(String),
     formatted_address: Option(String),
     location: Option(String),
   )
@@ -62,6 +65,11 @@ pub type Event {
     timezone: Option(String),
     cover: Option(String),
     notes: Option(String),
+    /// The description. `notes` is a different, usually-empty field — the body
+    /// people read lives here.
+    content: Option(String),
+    /// Hosts and co-hosts, as the API returns them.
+    roles: List(EventRole),
     meeting_url: Option(String),
     external_url: Option(String),
     participant_count: Int,
@@ -87,6 +95,15 @@ pub type User {
 /// decide where to send them next.
 pub type Session {
   Session(token: String, user: User)
+}
+
+/// A host or co-host on an event.
+pub type EventRole {
+  EventRole(
+    display_name: Option(String),
+    image_url: Option(String),
+    role: Option(String),
+  )
 }
 
 /// Pagination envelope. Every list endpoint wraps its rows in `data` and

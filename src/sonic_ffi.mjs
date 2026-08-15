@@ -181,3 +181,38 @@ export async function fetch_text(method, url, headers, body) {
   }
 }
 
+
+// Format a UTC timestamp in a named zone.
+//
+// The API sends UTC and names the event's zone separately; showing the UTC
+// clock time with the zone label appended states the wrong time — 07:30
+// labelled Asia/Bangkok when the event starts at 14:30 there. Intl carries the
+// tz database, so this is one of the "necessary parts" that belongs in JS.
+export function format_in_zone(iso, zone, pattern) {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const opts =
+      pattern === "date"
+        ? { weekday: "short", year: "numeric", month: "short", day: "2-digit" }
+        : { hour: "2-digit", minute: "2-digit", hour12: false };
+    return new Intl.DateTimeFormat("en-US", { ...opts, timeZone: zone }).format(d);
+  } catch {
+    return "";
+  }
+}
+
+// The zone's UTC offset at that instant, e.g. "GMT+7".
+export function zone_label(iso, zone) {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      timeZoneName: "shortOffset",
+    }).formatToParts(d);
+    return parts.find((p) => p.type === "timeZoneName")?.value ?? "";
+  } catch {
+    return "";
+  }
+}

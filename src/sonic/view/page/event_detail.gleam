@@ -31,15 +31,16 @@ pub fn view(event: Event) -> Element(msg) {
         ],
         [cover(event.cover), participate()],
       ),
-      html.div([attribute.class("flex-1 sm:mr-9 order-2 sm:order-1")], [
+      html.div([attribute.class("flex-1 min-w-0 sm:mr-9 order-2 sm:order-1")], [
         html.div([attribute.class("text-4xl font-semibold w-full")], [
           element.text(event.title),
         ]),
         tag_row(event),
         host_row(event),
         date_row(event),
+        location_block(event),
         tabs(event),
-        notes(event.notes),
+        body(event),
         comments(),
       ]),
     ]),
@@ -128,30 +129,56 @@ fn status_badge(event: Event) -> Element(msg) {
   }
 }
 
+/// The host, then every co-host from `event_roles`, on one scrollable row —
+/// upstream shows all of them, not just the owner.
 fn host_row(event: Event) -> Element(msg) {
-  case event.owner {
-    Some(owner) ->
+  let owner = case event.owner {
+    Some(o) -> [person(o.image_url, name_of(o.nickname, o.name, o.id), "Host")]
+    None -> []
+  }
+
+  let co_hosts =
+    list.map(event.roles, fn(role) {
+      person(
+        role.image_url,
+        option_text(role.display_name),
+        label_for(role.role),
+      )
+    })
+
+  case list.append(owner, co_hosts) {
+    [] -> element.none()
+    people ->
       html.div(
         [
-          attribute.class("flex-row-item-center py-4"),
+          attribute.class("flex-row-item-center py-4 gap-5 overflow-auto"),
           attribute.styles([
             #("border-top", "1px solid #f1f1f1"),
             #("border-bottom", "1px solid #f1f1f1"),
           ]),
         ],
-        [
-          avatar(owner.image_url, "w-10 h-10"),
-          html.div([attribute.class("ml-3")], [
-            html.div([attribute.class("font-semibold")], [
-              element.text(name_of(owner.nickname, owner.name, owner.id)),
-            ]),
-            html.div([attribute.class("text-sm text-gray-400")], [
-              element.text("Host"),
-            ]),
-          ]),
-        ],
+        people,
       )
-    None -> element.none()
+  }
+}
+
+fn person(image: Option(String), name: String, role: String) -> Element(msg) {
+  html.div([attribute.class("flex-row-item-center shrink-0")], [
+    avatar(image, "w-10 h-10"),
+    html.div([attribute.class("ml-2")], [
+      html.div([attribute.class("font-semibold")], [element.text(name)]),
+      html.div([attribute.class("text-sm text-gray-400")], [element.text(role)]),
+    ]),
+  ])
+}
+
+/// `co_host` reads as machinery; upstream shows "Co-Host".
+fn label_for(role: Option(String)) -> String {
+  case role {
+    Some("co_host") -> "Co-Host"
+    Some("speaker") -> "Speaker"
+    Some(other) if other != "" -> other
+    _ -> "Host"
   }
 }
 
@@ -167,30 +194,71 @@ fn date_row(event: Event) -> Element(msg) {
     ),
     html.div([attribute.class("ml-3")], [
       html.div([attribute.class("font-semibold")], [
-        element.text(event_time.readable(event.start_time)),
+        element.text(event_time.in_zone_date(event.start_time, event.timezone)),
       ]),
       html.div([attribute.class("text-gray-400")], [
-        element.text(event_time.range_with_zone(
+        element.text(event_time.in_zone_range(
           event.start_time,
           event.end_time,
           event.timezone,
         )),
       ]),
-      location_line(event),
     ]),
   ])
 }
 
-fn location_line(event: Event) -> Element(msg) {
-  let where = case event.place, event.venue {
-    Some(p), _ -> first_present([p.title, p.formatted_address, p.location])
-    None, Some(v) -> first_present([v.title, v.location])
+/// Venue name over its address, with the map links upstream offers.
+fn location_block(event: Event) -> Element(msg) {
+  let name = case event.venue, event.place {
+    Some(v), _ -> first_present([v.title, v.location])
+    None, Some(p) -> p.title
     None, None -> None
   }
-  case where {
-    Some(text) ->
-      html.div([attribute.class("text-gray-400")], [element.text(text)])
-    None -> element.none()
+  let address = case event.place {
+    Some(p) -> first_present([p.address, p.formatted_address, p.location])
+    None -> None
+  }
+
+  case name, address {
+    None, None -> element.none()
+    _, _ ->
+      html.div([attribute.class("flex-row-item-center py-4")], [
+        html.div(
+          [
+            attribute.class(
+              "w-10 h-10 rounded-lg bg-[#f8f9f8] flex items-center justify-center shrink-0",
+            ),
+          ],
+          [html.i([attribute.class("uil-location-point text-lg")], [])],
+        ),
+        html.div([attribute.class("ml-3 min-w-0")], [
+          case name {
+            Some(text) ->
+              html.div([attribute.class("font-semibold")], [element.text(text)])
+            None -> element.none()
+          },
+          case address {
+            Some(text) ->
+              html.div([attribute.class("text-gray-400")], [element.text(text)])
+            None -> element.none()
+          },
+          case address {
+            Some(text) ->
+              html.a(
+                [
+                  attribute.href(
+                    "https://www.google.com/maps/search/?api=1&query=" <> text,
+                  ),
+                  attribute.class("text-sm text-[#6cd7b2] mr-3"),
+                  attribute("target", "_blank"),
+                  attribute("rel", "noopener noreferrer"),
+                ],
+                [element.text("View map")],
+              )
+            None -> element.none()
+          },
+        ]),
+      ])
   }
 }
 
@@ -217,10 +285,19 @@ fn tabs(event: Event) -> Element(msg) {
   )
 }
 
-fn notes(value: Option(String)) -> Element(msg) {
-  case value {
+/// `content` holds the description; `notes` is a different field that is
+/// usually empty. Reading only `notes` left every event body blank.
+fn body(event: Event) -> Element(msg) {
+  case first_present([event.content, event.notes]) {
     Some(text) if text != "" ->
-      html.div([attribute.class("whitespace-pre-wrap")], [element.text(text)])
+      // break-words and min-w-0 on the column: the body is markdown that can
+      // contain very long unbroken URLs, and without them a single link is
+      // wide enough to push the layout past the viewport and squash the
+      // sidebar out of view entirely.
+      html.div(
+        [attribute.class("whitespace-pre-wrap break-words overflow-hidden")],
+        [element.text(text)],
+      )
     _ -> element.none()
   }
 }
