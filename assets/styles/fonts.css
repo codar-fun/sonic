@@ -128,3 +128,18 @@
   --media-icon: "media_icons";
   --font-editor-icons: "editor_icons";
 }
+
+/* Rendered markdown. The event body arrives as HTML from markdown-it, so it
+ * carries no utility classes — these give it the typography the reference has,
+ * scoped so they cannot leak into the rest of the page. */
+.markdown h1, .markdown h2, .markdown h3 { font-weight: 600; margin: 1rem 0 .5rem; }
+.markdown h1 { font-size: 1.5rem; }
+.markdown h2 { font-size: 1.25rem; }
+.markdown h3 { font-size: 1.1rem; }
+.markdown p { margin: .75rem 0; }
+.markdown ul, .markdown ol { margin: .75rem 0; padding-left: 1.5rem; list-style: revert; }
+.markdown a { color: #6cd7b2; text-decoration: underline; }
+.markdown img { max-width: 100%; height: auto; border-radius: .5rem; }
+.markdown blockquote { border-left: 3px solid #f1f1f1; padding-left: 1rem; color: #6b7280; }
+.markdown code { background: #f8f9f8; padding: .1rem .3rem; border-radius: .25rem; font-size: .9em; }
+.markdown pre { background: #f8f9f8; padding: .75rem; border-radius: .5rem; overflow-x: auto; }

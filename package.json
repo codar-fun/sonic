@@ -1,0 +1,8 @@
+{
+  "name": "sonic-runtime",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "markdown-it": "^14.1.0"
+  }
+}

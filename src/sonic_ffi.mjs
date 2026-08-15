@@ -216,3 +216,23 @@ export function zone_label(iso, zone) {
     return "";
   }
 }
+
+// Markdown, rendered with the same library upstream uses so event bodies read
+// the same way. `html: false` means raw HTML in the source is escaped rather
+// than passed through — event descriptions are user-supplied, and this is the
+// difference between a formatted paragraph and a script tag on the page.
+import MarkdownIt from "markdown-it";
+
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  breaks: true,
+});
+
+export function render_markdown(source) {
+  try {
+    return md.render(source);
+  } catch {
+    return "";
+  }
+}

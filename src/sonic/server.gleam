@@ -107,8 +107,24 @@ pub fn handle(req: Request) -> Promise(Response) {
   case router.parse(req.path), req.method {
     router.Home, _ -> render(home_page(), signed_in)
     router.EventList, _ -> render(event_list_page(req.token), signed_in)
-    router.EventDetail(id), _ ->
-      render(event_detail_page(id, req.token), signed_in)
+    router.EventDetail(id), _ -> {
+      use result <- promise.map(event.detail(id: id, auth: req.token))
+      case result {
+        Ok(found) ->
+          Page(
+            200,
+            document_meta(
+              event_detail.view(found),
+              signed_in,
+              event_meta(found),
+            ),
+          )
+        Error(err) -> {
+          let #(status, message) = explain(err)
+          Page(status, document(error_page.view(status, message), signed_in))
+        }
+      }
+    }
     router.Communities, _ -> render(communities_page(req.token), signed_in)
     router.Search, _ -> render(search_page(req), signed_in)
     router.BadgeDetail(id), _ -> render(badge_page(id, req.token), signed_in)
@@ -444,7 +460,40 @@ fn map_ok(
 }
 
 fn document(body: Element(msg), signed_in: Bool) -> String {
-  "<!doctype html>" <> element.to_string(layout.document(body, signed_in))
+  document_meta(body, signed_in, layout.site_meta())
+}
+
+fn document_meta(
+  body: Element(msg),
+  signed_in: Bool,
+  meta: layout.Meta,
+) -> String {
+  "<!doctype html>"
+  <> element.to_string(layout.document_with(body, signed_in, meta))
+}
+
+/// A shared link to an event should preview as that event, not as the site.
+fn event_meta(event: Event) -> layout.Meta {
+  layout.Meta(
+    title: event.title,
+    description: case event.content, event.notes {
+      Some(text), _ if text != "" -> summarise(text)
+      _, Some(text) if text != "" -> summarise(text)
+      _, _ -> layout.site_meta().description
+    },
+    image: case event.cover {
+      Some(url) if url != "" -> url
+      _ -> layout.site_meta().image
+    },
+  )
+}
+
+/// Previews truncate anyway; sending 290KB of markdown in a meta tag would
+/// bloat every page for nothing.
+fn summarise(text: String) -> String {
+  text
+  |> string.replace("\n", " ")
+  |> string.slice(0, 200)
 }
 
 @external(javascript, "../sonic_ffi.mjs", "serve")

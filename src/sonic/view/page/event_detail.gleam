@@ -303,13 +303,18 @@ fn tabs(event: Event) -> Element(msg) {
 fn body(event: Event) -> Element(msg) {
   case first_present([event.content, event.notes]) {
     Some(text) if text != "" ->
-      // break-words and min-w-0 on the column: the body is markdown that can
-      // contain very long unbroken URLs, and without them a single link is
-      // wide enough to push the layout past the viewport and squash the
-      // sidebar out of view entirely.
-      html.div(
-        [attribute.class("whitespace-pre-wrap break-words overflow-hidden")],
-        [element.text(text)],
+      // Rendered as HTML, as upstream does. markdown-it escapes raw HTML in
+      // the source (html: false), so a description cannot inject markup —
+      // these bodies are user-supplied.
+      //
+      // break-words and min-w-0 on the column because a single unbroken URL in
+      // a description is wide enough to push the layout past the viewport and
+      // squash the sidebar off screen.
+      element.unsafe_raw_html(
+        "",
+        "div",
+        [attribute.class("markdown break-words overflow-hidden")],
+        render_markdown(text),
       )
     _ -> element.none()
   }
@@ -438,3 +443,6 @@ fn option_text(value: Option(String)) -> String {
     None -> ""
   }
 }
+
+@external(javascript, "../../../sonic_ffi.mjs", "render_markdown")
+fn render_markdown(source: String) -> String

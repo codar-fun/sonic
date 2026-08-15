@@ -24,6 +24,11 @@ RUN gleam build
 # Tailwind scans src/**/*.gleam for class names, so this must run after the
 # sources are in place. app.css is a build artifact and is gitignored, so the
 # image builds it rather than shipping a copy that could disagree.
+# markdown-it renders event bodies at request time, so it ships in the runtime
+# image rather than being a build-only tool.
+COPY package.json ./
+RUN npm install --omit=dev --no-audit --no-fund
+
 COPY assets ./assets
 # priv/ carries the static images; Tailwind writes app.css alongside them, so
 # both reach the runtime stage through a single copy of this directory.
@@ -39,6 +44,8 @@ RUN addgroup -S sonic && adduser -S -G sonic sonic
 WORKDIR /app
 COPY --from=build --chown=sonic:sonic /app/build/dev/javascript ./javascript
 COPY --from=build --chown=sonic:sonic /app/priv ./priv
+COPY --from=build --chown=sonic:sonic /app/node_modules ./node_modules
+COPY --from=build --chown=sonic:sonic /app/package.json ./package.json
 COPY --chown=sonic:sonic bin ./bin
 # The browser entry sits beside the compiled modules so its relative imports
 # resolve; it is kept out of the Gleam build so its path does not carry the

@@ -5,3 +5,4 @@ node_modules/
 .DS_Store
 assets/node_modules/
 priv/static/app.css
+node_modules/
