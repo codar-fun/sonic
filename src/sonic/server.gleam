@@ -148,11 +148,20 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.GroupHome(handle), _ ->
       render(group_home_page(handle, req.token, tab_of(req)), signed_in)
     router.Schedule(handle), _ ->
-      render(schedule_page(handle, req.token, schedule.list_view), signed_in)
+      render(
+        schedule_page(handle, req.token, "list", schedule.list_view),
+        signed_in,
+      )
     router.ScheduleCompact(handle), _ ->
-      render(schedule_page(handle, req.token, schedule.compact_view), signed_in)
+      render(
+        schedule_page(handle, req.token, "compact", schedule.compact_view),
+        signed_in,
+      )
     router.ScheduleVenue(handle), _ ->
-      render(schedule_page(handle, req.token, schedule.venue_view), signed_in)
+      render(
+        schedule_page(handle, req.token, "venue", schedule.venue_view),
+        signed_in,
+      )
     router.Venues(handle), _ ->
       render(venues_page(handle, req.token), signed_in)
     router.Members(handle), _ ->
@@ -335,30 +344,39 @@ fn badge_class_page(
 }
 
 /// Same two concurrent reads as the group home; only the presentation differs.
+/// The two fetches are sequential rather than concurrent, unlike the other
+/// group pages: the date window is computed in the group's own timezone, so
+/// the group has to resolve before the events can be asked for.
 fn schedule_page(
   handle: String,
   token: Option(String),
+  view: String,
   layout: fn(GroupDetail, Page(Event)) -> Element(msg),
 ) -> Promise(Result(Element(msg), ApiError)) {
-  let detail = group.detail(handle: handle, auth: token)
-  let events =
-    group.events(
-      handle: handle,
-      page: 1,
-      limit: 100,
-      collection: "past",
-      auth: token,
-    )
+  use group_result <- promise.await(group.detail(handle: handle, auth: token))
 
-  use group_result <- promise.await(detail)
-  use events_result <- promise.map(events)
-
-  case group_result, events_result {
-    Ok(found), Ok(page) -> Ok(layout(found, page))
-    Error(err), _ -> Error(err)
-    _, Error(err) -> Error(err)
+  case group_result {
+    Error(err) -> promise.resolve(Error(err))
+    Ok(found) -> {
+      let zone = option.unwrap(found.timezone, "UTC")
+      let #(from, to) = schedule_interval(zone, view)
+      use events_result <- promise.map(group.schedule_events(
+        handle: handle,
+        from: from,
+        to: to,
+        timezone: found.timezone,
+        auth: token,
+      ))
+      case events_result {
+        Ok(page) -> Ok(layout(found, page))
+        Error(err) -> Error(err)
+      }
+    }
   }
 }
+
+@external(javascript, "../sonic_ffi.mjs", "schedule_interval")
+fn schedule_interval(zone: String, view: String) -> #(String, String)
 
 fn profile_page(
   handle: String,

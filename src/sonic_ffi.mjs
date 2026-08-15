@@ -275,6 +275,61 @@ export function zone_label(iso, zone) {
   }
 }
 
+// The schedule's date window.
+//
+// Upstream's getInterval: the list and week views cover the current week, the
+// compact and venue views a single day. Without a window the schedule asked
+// for events by page count and got the group's whole history under a heading
+// that says this week.
+//
+// Computed in the group's timezone, not the server's: "today" in Bangkok is a
+// different day from "today" in UTC for seven hours out of every twenty-four,
+// and a schedule that starts on the wrong day is wrong for everyone reading it
+// from the place the events happen.
+export function schedule_interval(zone, view) {
+  const tz = zone || "UTC";
+  const today = zonedToday(tz);
+  if (view === "week" || view === "list") {
+    // Monday, not Sunday: upstream sets `weekStart: 1` on its dayjs locale, so
+    // a Sunday start shifted every heading by a day.
+    const day = today.getUTCDay();
+    const start = addDays(today, day === 0 ? -6 : 1 - day);
+    return [isoDate(start), isoDate(addDays(start, 6))];
+  }
+  return [isoDate(today), isoDate(today)];
+}
+
+// "2026 August" — the schedule's month label.
+export function month_label(zone) {
+  const tz = zone || "UTC";
+  const today = zonedToday(tz);
+  const month = new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    timeZone: "UTC",
+  }).format(today);
+  return `${today.getUTCFullYear()} ${month}`;
+}
+
+// Today's calendar date in `zone`, carried as a UTC-midnight Date so the
+// arithmetic above cannot be moved across a boundary by a local offset.
+function zonedToday(zone) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: zone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  return new Date(`${parts}T00:00:00Z`);
+}
+
+function addDays(date, days) {
+  return new Date(date.getTime() + days * 86400000);
+}
+
+function isoDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
 // Markdown, rendered with the same library upstream uses so event bodies read
 // the same way. `html: false` means raw HTML in the source is escaped rather
 // than passed through — event descriptions are user-supplied, and this is the

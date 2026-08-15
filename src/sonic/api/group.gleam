@@ -6,7 +6,7 @@
 
 import gleam/int
 import gleam/javascript/promise.{type Promise}
-import gleam/option.{Some}
+import gleam/option.{type Option, Some}
 import sonic/api/client.{type ApiResult, type Auth}
 import sonic/api/decoders
 import sonic/api/types.{
@@ -48,6 +48,38 @@ pub fn events(
       #("collection", Some(collection)),
       #("page", Some(int.to_string(page))),
       #("limit", Some(int.to_string(limit))),
+    ],
+    auth: auth,
+    expect: decoders.page(of: decoders.event()),
+  )
+}
+
+/// `GET /events?group_id=…&start_date=…&end_date=…` — a group's events inside
+/// a date window.
+///
+/// The schedule asks for a window rather than a page: upstream loads one week
+/// for the list and week views and one day for compact and venue, then groups
+/// what comes back. Paging by count instead returned the group's entire
+/// history, which is why the schedule was showing hundreds of past events
+/// under a heading that says this week.
+///
+/// The limit matches upstream's 400 — the window bounds the result, and a
+/// smaller page would silently cut a busy week short.
+pub fn schedule_events(
+  handle handle: String,
+  from from: String,
+  to to: String,
+  timezone timezone: Option(String),
+  auth auth: Auth,
+) -> Promise(ApiResult(Page(Event))) {
+  client.get(
+    path: "/events",
+    query: [
+      #("group_id", Some(handle)),
+      #("start_date", Some(from)),
+      #("end_date", Some(to)),
+      #("timezone", timezone),
+      #("limit", Some("400")),
     ],
     auth: auth,
     expect: decoders.page(of: decoders.event()),

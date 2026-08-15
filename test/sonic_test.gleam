@@ -131,3 +131,16 @@ pub fn place_name_decodes_test() {
   place.title |> should.equal(Some("4seas Nimman"))
   place.address |> should.equal(Some("2 20 Nimmana Haeminda Rd"))
 }
+
+/// Venues name themselves with `name` too, not `title`. Reading `title` made
+/// every venue decode to None, so the schedule fell through to the place name
+/// — a different string for the same room ("Building F" where the venue says
+/// "1st Floor, Building F"). Wrong, and still shaped like an address.
+pub fn venue_name_decodes_test() {
+  let payload =
+    "{\"id\":\"e1\",\"title\":\"T\",\"status\":\"published\",\"visibility\":\"public\",\"start_time\":\"a\",\"end_time\":\"b\",\"venue\":{\"id\":\"v1\",\"name\":\"Zuzalu Library Event Space - 1st Floor, Building F\"}}"
+  let event = payload |> json.parse(decoders.event()) |> should.be_ok
+  let venue = event.venue |> should.be_some
+  venue.title
+  |> should.equal(Some("Zuzalu Library Event Space - 1st Floor, Building F"))
+}

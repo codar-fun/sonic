@@ -76,7 +76,11 @@ pub fn place() -> Decoder(Place) {
 
 pub fn venue() -> Decoder(Venue) {
   use id <- decode.field("id", decode.string)
-  use title <- opt("title", decode.string)
+  // `name`, like place — not `title`. Reading `title` decoded every venue's
+  // name to None, so the schedule silently fell back to the place name, which
+  // is a *different* string ("Building F" where the venue says "1st Floor,
+  // Building F"). Wrong in a way that still looked like an address.
+  use title <- opt("name", decode.string)
   use location <- opt("location", decode.string)
   decode.success(Venue(id:, title:, location:))
 }
@@ -224,6 +228,7 @@ pub fn group_detail() -> Decoder(GroupDetail) {
   use logo_url <- opt("logo_url", decode.string)
   use banner_image_url <- opt("banner_image_url", decode.string)
   use location <- opt("location", decode.string)
+  use timezone <- opt("timezone", decode.string)
   use start_date <- opt("start_date", decode.string)
   use end_date <- opt("end_date", decode.string)
   use events_count <- opt_or("events_count", 0, decode.int)
@@ -237,6 +242,7 @@ pub fn group_detail() -> Decoder(GroupDetail) {
     logo_url:,
     banner_image_url:,
     location:,
+    timezone:,
     start_date:,
     end_date:,
     events_count:,
@@ -335,6 +341,7 @@ pub fn track_detail() -> Decoder(TrackDetail) {
   use id <- decode.field("id", decode.string)
   use title <- opt("title", decode.string)
   use description <- opt("description", decode.string)
+  use timezone <- opt("timezone", decode.string)
   use start_date <- opt("start_date", decode.string)
   use end_date <- opt("end_date", decode.string)
   decode.success(TrackDetail(id:, title:, description:, start_date:, end_date:))

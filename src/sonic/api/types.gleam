@@ -174,6 +174,10 @@ pub type GroupDetail {
     logo_url: Option(String),
     banner_image_url: Option(String),
     location: Option(String),
+    /// The group's own zone. The schedule's date window is computed in it —
+    /// "today" in Bangkok is a different day from "today" in UTC for seven
+    /// hours out of every twenty-four.
+    timezone: Option(String),
     start_date: Option(String),
     end_date: Option(String),
     events_count: Int,

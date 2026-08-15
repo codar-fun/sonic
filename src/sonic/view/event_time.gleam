@@ -28,6 +28,16 @@ pub fn readable(iso: String) -> String {
   }
 }
 
+/// `2026-08-10` (or a full timestamp) → `Aug 10`. The schedule's day heading,
+/// which is also the anchor its day navigator scrolls to.
+pub fn short_day(iso: String) -> String {
+  case split(iso) {
+    Some(#(_year, month, day, _hour, _minute)) ->
+      month_name(month) <> " " <> int.to_string(day)
+    None -> iso
+  }
+}
+
 /// A compact range: same-day events collapse to one date with two times.
 pub fn range(start: String, end: String) -> String {
   case split(start), split(end) {
