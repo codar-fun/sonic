@@ -83,6 +83,8 @@ fn view(
         tool_bar(group, anchor, layout),
         case layout {
           WeekLayout -> week_grid(group, anchor, events)
+          ListLayout ->
+            element.fragment([day_nav(group, anchor), body(events, layout)])
           _ -> body(events, layout)
         },
       ]),
@@ -274,6 +276,76 @@ fn body(events: Page(Event), layout: Layout) -> Element(msg) {
         }),
       )
   }
+}
+
+/// The sticky day bar. Each cell is an anchor to that day's heading, which
+/// already carries the date as its id — so jumping to a day needs no script,
+/// and the arrows reuse the same window links as the toolbar.
+fn day_nav(group: GroupDetail, anchor: Option(String)) -> Element(msg) {
+  let zone = option.unwrap(group.timezone, "UTC")
+  let at = option.unwrap(anchor, "")
+  let days = schedule_days(zone, "list", at)
+  let marked = case at {
+    "" -> today_in_zone(zone)
+    value -> value
+  }
+
+  html.div(
+    [
+      attribute.class(
+        "flex-row-item-center sticky top-[48px] left-0 right-0 z-[999] my-3 sm:my-6 bg-[#F8F9F8]",
+      ),
+    ],
+    [
+      step_link(
+        group,
+        ListLayout,
+        schedule_step(zone, "list", at, -1),
+        arrow("uil-angle-left"),
+        "w-12",
+      ),
+      html.div(
+        [
+          attribute.class(
+            "flex-row-item-center bg-[#F8F9F8] flex-1 overflow-auto h-[54px] overflow-y-hidden",
+          ),
+        ],
+        list.map(days, fn(day) { day_cell(day, day == marked) }),
+      ),
+      step_link(
+        group,
+        ListLayout,
+        schedule_step(zone, "list", at, 1),
+        arrow("uil-angle-right"),
+        "w-12",
+      ),
+    ],
+  )
+}
+
+fn day_cell(date: String, selected: Bool) -> Element(msg) {
+  // `weekday_label` returns "Mon 10"; the bar prints the number first.
+  let #(weekday, number) = case string.split(weekday_label(date), " ") {
+    [name, day, ..] -> #(name, day)
+    _ -> #("", date)
+  }
+
+  html.a(
+    [
+      attribute.href("#" <> event_time.short_day(date <> "T00:00:00Z")),
+      attribute.class(
+        "px-8 flex-1 flex-shrink-0 cursor-pointer h-[52px] leading-[52px] text-center sm:border border-[#F1F1F1]",
+      ),
+      ..case selected {
+        True -> [attribute.styles([#("background-color", "#EFFFF9")])]
+        False -> []
+      }
+    ],
+    [
+      html.strong([], [element.text(number)]),
+      html.span([attribute.class("ml-1")], [element.text(weekday)]),
+    ],
+  )
 }
 
 /// Seven columns, one per weekday, each stacking that day's events.
@@ -645,3 +717,6 @@ fn schedule_step(
 
 @external(javascript, "../../../sonic_ffi.mjs", "weekday_label")
 fn weekday_label(date: String) -> String
+
+@external(javascript, "../../../sonic_ffi.mjs", "today_in_zone")
+fn today_in_zone(zone: String) -> String

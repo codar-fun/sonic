@@ -335,6 +335,11 @@ export function schedule_step(zone, view, startDate, direction) {
   return isoDate(addDays(new Date(`${from}T00:00:00Z`), span * direction));
 }
 
+// Today's calendar date in a zone, as YYYY-MM-DD. The schedule marks it.
+export function today_in_zone(zone) {
+  return isoDate(zonedToday(zone || "UTC"));
+}
+
 // "Mon 10" — a week-grid column header.
 export function weekday_label(date) {
   try {
