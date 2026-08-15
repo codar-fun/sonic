@@ -120,7 +120,6 @@ fn field(
         attribute.value(value),
         attribute.placeholder(placeholder),
         attribute.required(True),
-        attribute.autofocus(True),
         attribute("autocomplete", autocomplete),
         attribute.class("w-full flex-1 h-full bg-transparent outline-none mx-1"),
       ]),
@@ -153,26 +152,40 @@ fn divider() -> Element(msg) {
   )
 }
 
-/// Google and wallet sign-in are separate flows that are not built. They are
-/// rendered because the page's shape includes them, and disabled rather than
-/// linked somewhere that cannot complete the sign-in.
+/// Google and wallet sign-in are separate flows that are not built. The
+/// buttons are rendered as upstream draws them — including its icons — rather
+/// than greyed out: a disabled-looking control changes the page's appearance,
+/// and matching it is the requirement. Pressing one does nothing yet.
 fn alternatives() -> Element(msg) {
   html.div([attribute.class("flex flex-col sm:grid sm:gap-2 sm:grid-cols-2")], [
-    alternative("Google Auth"),
-    alternative("Ethereum Wallet"),
+    alternative(google_mark(), "Google Auth"),
+    alternative(
+      html.i([attribute.class("uil-wallet text-xl")], []),
+      "Ethereum Wallet",
+    ),
   ])
 }
 
-fn alternative(label: String) -> Element(msg) {
+fn alternative(icon: Element(msg), label: String) -> Element(msg) {
   html.button(
     [
-      attribute.disabled(True),
-      attribute.title("Not available yet"),
+      attribute.type_("button"),
       attribute.class(
-        "font-semibold inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg ring-offset-background transition-colors disabled:pointer-events-none disabled:opacity-50 border border-foreground bg-background hover:bg-accent hover:opacity-80 h-11 px-4 py-2 w-full justify-start gap-3 font-normal mb-2 sm:mb-0",
+        "font-semibold inline-flex items-center whitespace-nowrap rounded-lg ring-offset-background transition-colors border border-foreground bg-background hover:bg-accent hover:opacity-80 h-11 px-4 py-2 w-full justify-start gap-3 font-normal shadow-sm mb-3 sm:mb-0",
       ),
     ],
-    [element.text(label)],
+    [icon, element.text(label)],
+  )
+}
+
+/// Google's mark, in its own colours — a monochrome stand-in reads as a
+/// different button.
+fn google_mark() -> Element(msg) {
+  element.unsafe_raw_html(
+    "",
+    "span",
+    [attribute.class("inline-flex shrink-0")],
+    "<svg width=\"18\" height=\"18\" viewBox=\"0 0 18 18\" xmlns=\"http://www.w3.org/2000/svg\"><path fill=\"#4285f4\" d=\"M17.64 9.2c0-.638-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.874 2.684-6.615\"/><path fill=\"#34a853\" d=\"M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.583-5.036-3.71H.957v2.332A8.997 8.997 0 0 0 9 18\"/><path fill=\"#fbbc05\" d=\"M3.964 10.712A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.042z\"/><path fill=\"#ea4335\" d=\"M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.464.891 11.428 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58\"/></svg>",
   )
 }
 
