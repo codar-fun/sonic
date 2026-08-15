@@ -171,7 +171,7 @@ fn alternative(icon: Element(msg), label: String) -> Element(msg) {
     [
       attribute.type_("button"),
       attribute.class(
-        "font-semibold inline-flex items-center whitespace-nowrap rounded-lg ring-offset-background transition-colors border border-foreground bg-background hover:bg-accent hover:opacity-80 h-11 px-4 py-2 w-full justify-start gap-3 font-normal shadow-sm mb-3 sm:mb-0",
+        "font-semibold inline-flex items-center whitespace-nowrap rounded-lg ring-offset-background transition-colors border border-foreground bg-background hover:bg-accent hover:opacity-80 h-11 px-4 py-2 w-full justify-center gap-3 font-normal shadow-sm mb-3 sm:mb-0",
       ),
     ],
     [icon, element.text(label)],
