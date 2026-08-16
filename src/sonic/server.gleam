@@ -859,12 +859,24 @@ fn auth_page(status: Int, body: Element(msg), ctx: Ctx) -> Promise(Response) {
 
 /// What the visitor is told, and under which status.
 ///
-/// An upstream 404 stays a 404; anything else upstream becomes 502, because the
-/// failure is ours-to-them, not theirs-to-the-visitor.
+/// An upstream 404 stays a 404 and a refusal stays a refusal; anything else is
+/// 502, because that failure is ours-to-them rather than theirs-to-the-visitor.
+///
+/// The wording is deliberately not about events. These messages started on the
+/// event pages and now surface on group settings, profiles and every write
+/// form, where "that event is not public" describes nothing that happened.
 fn explain(err: ApiError) -> #(Int, String) {
   case err {
-    HttpError(404, _) -> #(404, "That event does not exist.")
-    HttpError(401, _) | HttpError(403, _) -> #(403, "That event is not public.")
+    HttpError(404, _) -> #(404, "Not found.")
+    HttpError(401, _) | HttpError(403, _) -> #(
+      403,
+      "You do not have permission to do that.",
+    )
+    // A rejected write is the caller's to fix, not an outage. These were
+    // being reported as 502s, which reads as "the site is broken" when the
+    // actual answer — the API says so itself — is usually one bad field.
+    HttpError(422, body) -> #(422, api_message(body))
+    HttpError(400, body) -> #(400, api_message(body))
     HttpError(status, body) -> #(
       502,
       "Upstream returned "
@@ -877,6 +889,21 @@ fn explain(err: ApiError) -> #(Int, String) {
       "The API returned a shape sonic does not understand: " <> detail,
     )
     NetworkError(detail) -> #(502, "Could not reach the API: " <> detail)
+  }
+}
+
+/// The API answers a rejected write with `{"error": "..."}`. That sentence is
+/// the most useful thing anyone can be told, so it is shown rather than
+/// paraphrased — pulled out by hand because it is one field and threading a
+/// decoder through the error path would cost more than it explains.
+pub fn api_message(body: String) -> String {
+  case string.split_once(body, "\"error\":\"") {
+    Ok(#(_, rest)) ->
+      case string.split_once(rest, "\"") {
+        Ok(#(message, _)) -> message
+        Error(_) -> string.slice(body, 0, 200)
+      }
+    Error(_) -> string.slice(body, 0, 200)
   }
 }
 

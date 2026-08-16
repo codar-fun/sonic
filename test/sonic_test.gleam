@@ -11,6 +11,7 @@ import gleeunit
 import gleeunit/should
 import sonic/api/decoders
 import sonic/api/types.{type Event}
+import sonic/server
 import sonic/view/event_time
 
 pub fn main() {
@@ -153,4 +154,14 @@ pub fn date_span_test() {
   |> should.equal("Nov 11 - Jan 03, 2027")
 
   event_time.one_date("2026-08-05") |> should.equal("Aug 05, 2026")
+}
+
+/// The API answers a rejected write with `{"error": "..."}`, and that
+/// sentence is the most useful thing the person can be told.
+pub fn api_error_message_is_surfaced_test() {
+  server.api_message("{\"error\":\"Name must be 6-30 lowercase letters\"}")
+  |> should.equal("Name must be 6-30 lowercase letters")
+
+  // Anything else falls back to the body rather than to an empty string.
+  server.api_message("not json") |> should.equal("not json")
 }
