@@ -1079,7 +1079,7 @@ fn register_page(
 fn save_username(req: Request) -> Promise(Response) {
   let name = string.lowercase(option.unwrap(request.field(req, "name"), ""))
 
-  case req.token, group.invalid_name(name) {
+  case req.token, group.invalid_username(name) {
     None, _ -> promise.resolve(Redirect("/signin?return=/register", None))
     // The same rules as a group handle: it becomes the profile URL.
     _, Some(problem) -> register_page(req, name, Some(problem))

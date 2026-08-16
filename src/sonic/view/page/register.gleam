@@ -43,10 +43,7 @@ pub fn view(lang: Lang, taken: String, problem: Option(String)) -> Element(msg) 
                 lang,
                 "Contain the English-language letters a-z and the digits 0-9",
               )),
-              rule(i18n.t(
-                lang,
-                "Hyphens can also be used but it can not be used at the beginning and at the end",
-              )),
+              rule(i18n.t(lang, "Underscores can also be used")),
               rule(i18n.t(lang, "Should be equal or longer than 6 characters")),
             ]),
           ]),

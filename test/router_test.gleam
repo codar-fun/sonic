@@ -107,4 +107,15 @@ pub fn group_name_rules_test() {
   group.invalid_name("double--hyphen") |> should.be_some
   group.invalid_name("has space") |> should.be_some
   group.invalid_name("Uppercase") |> should.be_some
+  // 30 is the API's ceiling, not upstream's 20.
+  group.invalid_name("abcdefghij0123456789abcdefghij") |> should.equal(None)
+}
+
+/// Usernames and group handles are validated by different rules in soon:
+/// `[a-z0-9_]` for a user, `[a-z0-9_-]` for a group. Sharing one validator
+/// meant a valid username was refused with "not available".
+pub fn username_rules_differ_from_group_names_test() {
+  group.invalid_username("sonic_test") |> should.equal(None)
+  group.invalid_username("sonic-test") |> should.be_some
+  group.invalid_name("sonic-test") |> should.equal(None)
 }

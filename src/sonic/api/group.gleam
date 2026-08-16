@@ -111,43 +111,61 @@ pub fn create(
   )
 }
 
-/// The handle rules, checked before the request rather than after.
+/// The group handle rules, checked before the request rather than after.
 ///
-/// Ported from upstream's `verifyUsername`: lowercase letters and digits,
-/// single hyphens between them but never at either end, 6 to 20 characters.
-/// The name becomes the group's URL and cannot be changed, so rejecting it
-/// here is kinder than a 422 from the server.
+/// Taken from soon's own model — `/\A[a-z0-9_-]{3,30}\z/` — not from
+/// upstream's client-side `verifyUsername`, which allows hyphens where the
+/// API wants underscores and caps at 20 where the API allows 30. Copying the
+/// client meant rejecting names the server accepts and accepting names it
+/// rejects, which surfaced as "that name is not available" for a perfectly
+/// good one.
+///
+/// The 6-character minimum and the no-edge-hyphen rules are upstream's own,
+/// stricter than the API on purpose; the name becomes the URL and cannot be
+/// changed, so the stricter reading is the kind one.
 pub fn invalid_name(name: String) -> Option(String) {
+  check(name, "group name", "abcdefghijklmnopqrstuvwxyz0123456789_-")
+}
+
+/// Usernames are *not* the same: soon's user model is `[a-z0-9_]`, with no
+/// hyphen. One shared validator would have to be wrong for one of them.
+pub fn invalid_username(name: String) -> Option(String) {
+  check(name, "username", "abcdefghijklmnopqrstuvwxyz0123456789_")
+}
+
+fn check(name: String, what: String, alphabet: String) -> Option(String) {
   let length = string.length(name)
   case name {
-    "" -> Some("Please input a group name")
+    "" -> Some("Please input a " <> what)
     _ ->
       case
         string.starts_with(name, "-"),
         string.ends_with(name, "-"),
         length < 6,
-        length > 20,
-        is_allowed(name)
+        length > 30,
+        list.all(string.to_graphemes(name), fn(c) {
+          string.contains(alphabet, c)
+        })
+        && !string.contains(name, "--")
       {
-        True, _, _, _, _ -> Some("Group name cannot start with \"-\"")
-        _, True, _, _, _ -> Some("Group name cannot end with \"-\"")
-        _, _, True, _, _ -> Some("The minimum length of a group name is 6")
-        _, _, _, True, _ -> Some("The maximum length of a group name is 20")
+        True, _, _, _, _ -> Some("A " <> what <> " cannot start with \"-\"")
+        _, True, _, _, _ -> Some("A " <> what <> " cannot end with \"-\"")
+        _, _, True, _, _ ->
+          Some("The minimum length of a " <> what <> " is 6")
+        _, _, _, True, _ ->
+          Some("The maximum length of a " <> what <> " is 30")
         _, _, _, _, False ->
-          Some("Group name contains an invalid character")
+          Some("A " <> what <> " may only contain " <> describe(alphabet))
         _, _, _, _, True -> None
       }
   }
 }
 
-/// a-z, 0-9 and single hyphens between them.
-fn is_allowed(name: String) -> Bool {
-  let chars = string.to_graphemes(name)
-  let allowed =
-    list.all(chars, fn(c) {
-      string.contains("abcdefghijklmnopqrstuvwxyz0123456789-", c)
-    })
-  allowed && !string.contains(name, "--")
+fn describe(alphabet: String) -> String {
+  case string.contains(alphabet, "-") {
+    True -> "lowercase letters, digits, underscores or hyphens"
+    False -> "lowercase letters, digits or underscores"
+  }
 }
 
 /// `GET /groups/directory` — every active group, for `/communities`.
