@@ -150,8 +150,12 @@ fn group_of(event: Event) -> Option(String) {
 fn thumbnail(event: Event) -> Element(msg) {
   case event.cover {
     Some(src) if src != "" ->
-      image.card_img(
+      // Square, at twice the drawn size. Asking for the 454x296 card crop put
+      // a 3:2 image in a 1:1 box, so the resizer cropped it once and the box
+      // cropped it again.
+      image.square_img(
         src,
+        280,
         "",
         "w-[140px] h-[140px] rounded-lg object-cover shrink-0",
       )

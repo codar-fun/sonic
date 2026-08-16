@@ -29,9 +29,29 @@ pub fn card(url: String) -> String {
   transform(url, "format=auto,quality=85,width=454,height=296,fit=cover")
 }
 
-/// An avatar. Small enough that the transform saves more than it costs.
-pub fn avatar(url: String) -> String {
-  transform(url, "format=auto,quality=85,width=28,height=28,fit=cover")
+/// An avatar at a given pixel size.
+///
+/// The size is the *requested* one, which upstream sets to roughly twice the
+/// drawn size so the picture is sharp on a dense screen. A single fixed 28px
+/// was serving every avatar on the site: a 64px community logo asked for 28
+/// pixels and rendered soft, while nothing anywhere benefited.
+pub fn avatar(url: String, size: Int) -> String {
+  let px = int.to_string(size)
+  transform(
+    url,
+    "format=auto,quality=85,width=" <> px <> ",height=" <> px <> ",fit=cover",
+  )
+}
+
+/// A square thumbnail. Event cards are square, so asking for the 454x296 card
+/// crop meant the image was cropped to 3:2 by the resizer and then cropped
+/// again by the box — losing more of the picture than either step intended.
+pub fn square(url: String, size: Int) -> String {
+  let px = int.to_string(size)
+  transform(
+    url,
+    "format=auto,quality=85,width=" <> px <> ",height=" <> px <> ",fit=cover",
+  )
 }
 
 /// Route a datastore URL back through this server.
@@ -86,6 +106,21 @@ pub fn eager() -> List(Attribute(msg)) {
   ]
 }
 
+/// A lazily-loaded square thumbnail.
+pub fn square_img(
+  src: String,
+  size: Int,
+  alt: String,
+  classes: String,
+) -> Element(msg) {
+  html.img([
+    attribute.src(square(src, size)),
+    attribute.alt(alt),
+    attribute.class(classes),
+    ..lazy()
+  ])
+}
+
 /// A lazily-loaded image with the resizer applied at card size.
 pub fn card_img(src: String, alt: String, classes: String) -> Element(msg) {
   html.img([
@@ -114,9 +149,9 @@ pub fn exportable_img(src: String, alt: String, classes: String) -> Element(msg)
 }
 
 /// A lazily-loaded avatar.
-pub fn avatar_img(src: String, classes: String) -> Element(msg) {
+pub fn avatar_img(src: String, size: Int, classes: String) -> Element(msg) {
   html.img([
-    attribute.src(avatar(src)),
+    attribute.src(avatar(src, size)),
     attribute.alt(""),
     attribute.class(classes),
     ..lazy()
@@ -141,10 +176,11 @@ pub fn default_avatar(id: String) -> String {
 pub fn avatar_or_default(
   url: option.Option(String),
   id: String,
+  size: Int,
   classes: String,
 ) -> Element(msg) {
   let src = case url {
-    option.Some(value) if value != "" -> avatar(value)
+    option.Some(value) if value != "" -> avatar(value, size)
     _ -> default_avatar(id)
   }
   html.img([

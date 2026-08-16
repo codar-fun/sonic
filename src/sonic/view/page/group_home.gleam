@@ -144,6 +144,7 @@ fn identity(group: GroupDetail) -> Element(msg) {
       image.avatar_or_default(
         first_present([group.image_url, group.logo_url]),
         group.id,
+        32,
         "w-6 h-6 rounded-full",
       ),
       html.div([attribute.class("font-semibold ml-2 truncate")], [

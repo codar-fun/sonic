@@ -136,7 +136,9 @@ fn avatar(url: Option(String), id: String) -> Element(msg) {
   }
 
   html.img([
-    attribute.src(image.avatar(src)),
+    // Drawn at 64px; asked for at twice that so it is sharp on a dense
+    // screen, as upstream does. It was asking for 28.
+    attribute.src(image.avatar(src, 128)),
     attribute.alt(""),
     attribute.width(64),
     attribute.height(64),

@@ -64,6 +64,7 @@ fn top_bar(event: Event) -> Element(msg) {
               image.avatar_or_default(
                 group.image_url,
                 group.id,
+                48,
                 "w-6 h-6 rounded-full",
               ),
               // Truncated, not wrapped: a long community name pushed the
@@ -213,7 +214,7 @@ fn person(
   handle: Option(String),
 ) -> Element(msg) {
   let inner = [
-    image.avatar_or_default(picture, id, "w-11 h-11 rounded-full mr-2"),
+    image.avatar_or_default(picture, id, 48, "w-11 h-11 rounded-full mr-2"),
     html.div([], [
       html.div([attribute.class("font-semibold text-sm text-nowrap")], [
         element.text(name),

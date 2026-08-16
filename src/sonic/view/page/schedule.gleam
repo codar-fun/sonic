@@ -769,6 +769,7 @@ fn host_line(event: Event) -> Element(msg) {
           image.avatar_or_default(
             owner.image_url,
             owner.id,
+            32,
             "w-4 h-4 rounded-full mx-1",
           ),
           element.text(name_of(owner.nickname, owner.name, owner.id)),

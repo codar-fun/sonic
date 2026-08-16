@@ -121,7 +121,13 @@ async function proxyImage(req, res) {
     return;
   }
   try {
-    const upstream = await fetch(`${IMAGE_PROXY_ORIGIN}/${path}`);
+    // The browser's Accept must be forwarded. The resizer's `format=auto`
+    // negotiates on it, so proxying without it downgraded every image to
+    // JPEG: 147KB where the reference site serves 118KB of AVIF. Nothing
+    // about the request looked wrong — the picture was simply heavier.
+    const upstream = await fetch(`${IMAGE_PROXY_ORIGIN}/${path}`, {
+      headers: { accept: req.headers.accept ?? "image/avif,image/webp,image/*,*/*" },
+    });
     if (!upstream.ok) {
       res.writeHead(upstream.status).end("");
       return;
@@ -129,7 +135,11 @@ async function proxyImage(req, res) {
     const body = Buffer.from(await upstream.arrayBuffer());
     res.writeHead(200, {
       "content-type": upstream.headers.get("content-type") ?? "image/jpeg",
+      "content-length": body.length,
       "cache-control": "public, max-age=86400",
+      // One URL now has several representations. Without this a shared cache
+      // could hand an AVIF to a client that cannot decode it.
+      vary: "Accept",
       // The point of the proxy: same-origin bytes the canvas can export.
       "access-control-allow-origin": "*",
     });
