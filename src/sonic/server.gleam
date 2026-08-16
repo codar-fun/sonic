@@ -88,17 +88,32 @@ fn encode(response: Response) -> #(Int, String, String, String) {
 }
 
 /// HttpOnly so script cannot read it, SameSite=Lax so it survives a normal
-/// navigation but not a cross-site POST. Not Secure-flagged here because the
-/// dev server is plain HTTP; behind Traefik that is worth revisiting.
+/// navigation but not a cross-site POST, and Secure so it is never sent in
+/// clear.
+///
+/// Secure is a flag rather than unconditional because the dev server is plain
+/// HTTP and a Secure cookie there would simply never come back, making local
+/// sign-in look broken. It is set in the container, where the only way in is
+/// HTTPS through Traefik.
 fn session_cookie(token: String) -> String {
   request.session_cookie
   <> "="
   <> token
   <> "; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000"
+  <> secure_flag()
 }
 
 fn cleared_cookie() -> String {
-  request.session_cookie <> "=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+  request.session_cookie
+  <> "=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+  <> secure_flag()
+}
+
+fn secure_flag() -> String {
+  case secure_cookies() {
+    True -> "; Secure"
+    False -> ""
+  }
 }
 
 /// Route a request to the handler that answers it.
@@ -464,6 +479,9 @@ fn schedule_page(
     }
   }
 }
+
+@external(javascript, "../sonic_ffi.mjs", "secure_cookies")
+fn secure_cookies() -> Bool
 
 @external(javascript, "../sonic_ffi.mjs", "schedule_interval")
 fn schedule_interval(

@@ -58,6 +58,8 @@ USER sonic
 # and a uniform 502. Keeping the port off the *host* is a separate concern,
 # handled by `nomad_host_network: loopback` in ginger.yml.
 ENV SONIC_HOST=0.0.0.0
+# Reached only over HTTPS via Traefik, so the session cookie is Secure here.
+ENV SONIC_SECURE_COOKIES=1
 # Compiled modules live at /app/javascript in the runtime image, not at the
 # build tree's path.
 ENV SONIC_JS_ROOT=javascript

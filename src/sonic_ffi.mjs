@@ -30,6 +30,13 @@ export function argv() {
   return List.fromArray(process.argv.slice(2));
 }
 
+// Whether session cookies carry the Secure flag. Off by default so the plain
+// HTTP dev server still works; the container sets it, because there the only
+// way in is HTTPS through Traefik.
+export function secure_cookies() {
+  return process.env.SONIC_SECURE_COOKIES === "1";
+}
+
 export function host() {
   return process.env.SONIC_HOST ?? "127.0.0.1";
 }
