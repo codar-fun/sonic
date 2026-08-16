@@ -291,7 +291,7 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.Venues(handle), _ ->
       render(
         group_scoped(handle, req.token, fn(found, _token) {
-          promise.resolve(Ok(venues.view(found)))
+          promise.resolve(Ok(venues.view(found, ctx.lang)))
         }),
         ctx,
       )
@@ -504,7 +504,7 @@ fn group_home_page(
 fn communities_page(
   token: Option(String),
 ) -> Promise(Result(Element(msg), ApiError)) {
-  use result <- promise.map(group.directory(page: 1, limit: 100, auth: token))
+  use result <- promise.map(group.all_directory(auth: token))
   result |> map_ok(communities.view)
 }
 

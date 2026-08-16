@@ -343,12 +343,16 @@ pub fn venue_detail() -> Decoder(VenueDetail) {
   use capacity <- opt("capacity", decode.int)
   use featured_image_url <- opt("featured_image_url", decode.string)
   use tags <- opt_or("tags", [], decode.list(decode.string))
+  use image_urls <- opt_or("image_urls", [], decode.list(decode.string))
+  use place <- opt("place", place())
   decode.success(VenueDetail(
     id:,
     name:,
     about:,
     capacity:,
     featured_image_url:,
+    image_urls:,
+    place:,
     tags:,
   ))
 }

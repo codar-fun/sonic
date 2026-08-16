@@ -243,7 +243,11 @@ pub type VenueDetail {
     name: Option(String),
     about: Option(String),
     capacity: Option(Int),
+    /// `featured_image_url` is null on every venue I have seen; the picture
+    /// that actually exists is the first of these.
     featured_image_url: Option(String),
+    image_urls: List(String),
+    place: Option(Place),
     tags: List(String),
   )
 }

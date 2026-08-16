@@ -14,6 +14,7 @@ import sonic/api/client.{type ApiResult, type Auth}
 import sonic/api/decoders
 import sonic/api/types.{
   type Event, type GroupDetail, type Membership, type Page, type TrackDetail,
+  Page,
 }
 
 /// `GET /groups/:handle` — one group's full record.
@@ -167,6 +168,41 @@ pub fn directory(
     auth: auth,
     expect: decoders.page(of: decoders.group_detail()),
   )
+}
+
+/// Every group in the directory, following the pagination to the end.
+///
+/// The endpoint caps a page at 100 and there are over four hundred groups, so
+/// asking for one page showed a quarter of the directory with nothing to say
+/// so. Upstream walks the pages too (`requestAllPages`).
+///
+/// Bounded at ten pages: a thousand groups is far past anything this page can
+/// usefully render, and an unbounded loop against a paginated endpoint is one
+/// bad `total_pages` away from never returning.
+pub fn all_directory(auth auth: Auth) -> Promise(ApiResult(Page(GroupDetail))) {
+  collect_directory(1, [], auth)
+}
+
+fn collect_directory(
+  page_number: Int,
+  seen: List(GroupDetail),
+  auth: Auth,
+) -> Promise(ApiResult(Page(GroupDetail))) {
+  use result <- promise.await(directory(
+    page: page_number,
+    limit: 100,
+    auth: auth,
+  ))
+  case result {
+    Error(err) -> promise.resolve(Error(err))
+    Ok(page) -> {
+      let gathered = list.append(seen, page.data)
+      case page.meta.next_page, page_number >= 10 {
+        Some(next), False -> collect_directory(next, gathered, auth)
+        _, _ -> promise.resolve(Ok(Page(data: gathered, meta: page.meta)))
+      }
+    }
+  }
 }
 
 /// `GET /groups/:id/memberships` — who belongs, and in what role.
