@@ -42,6 +42,17 @@ fn links() -> Element(msg) {
         link(issues_url, "Feedback"),
       ],
     ),
+    // Second row: the OAuth developer pages. Those routes are not built here
+    // yet, so these link where upstream links and will land on the 404 page
+    // until they are — visible and honest, rather than a row that is silently
+    // missing from the footer.
+    html.div(
+      [attribute.class("flex-row-item-center justify-center sm:justify-start mt-2")],
+      [
+        html.a([attribute.href("/oauth/apps")], [element.text("Developer")]),
+        link("/oauth/grants", "Authorized Applications"),
+      ],
+    ),
   ])
 }
 

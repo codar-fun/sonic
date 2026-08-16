@@ -15,8 +15,8 @@ import gleam/string
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
-import sonic/api/types.{type Discover, type Group, type PopupCity}
-import sonic/view/community_list
+import sonic/api/types.{type Discover, type PopupCity}
+import sonic/view/goto_tiles
 import sonic/view/event_time
 import sonic/view/footer
 import sonic/view/image
@@ -28,7 +28,7 @@ pub fn view(data: Discover) -> Element(msg) {
     features(featured),
     create_group_panel(),
     popup_cities(data.popup_cities),
-    communities(data),
+    goto_tiles.view(),
     footer.view(),
   ])
 }
@@ -228,6 +228,10 @@ fn city_card(city: PopupCity) -> Element(msg) {
       html.div([attribute.class("rounded aspect-[3/2] mb-3 overflow-hidden")], [
         cover(first_present([city.image_url, city.banner_image_url])),
       ]),
+      // Dates first, then the name: upstream leads with when, not what.
+      html.div([attribute.class("webkit-box-clamp-1 sm:text-sm text-xs")], [
+        element.text(option_text(dates(city))),
+      ]),
       html.div(
         [
           attribute.class(
@@ -236,41 +240,37 @@ fn city_card(city: PopupCity) -> Element(msg) {
         ],
         [element.text(display_name(city.nickname, city.name, city.id))],
       ),
-      html.div([attribute.class("webkit-box-clamp-1 sm:text-sm text-xs")], [
-        element.text(option_text(dates(city))),
+      html.div([attribute.class("flex items-end flex-row justify-between")], [
+        html.div([attribute.class("flex-1")], [
+          case city.location {
+            Some(place) if place != "" ->
+              html.div([attribute.class("flex-row-item-center text-xs")], [
+                html.i([attribute.class("uil-location-point mr-0.5")], []),
+                html.div([attribute.class("webkit-box-clamp-1 break-all")], [
+                  element.text(place),
+                ]),
+              ])
+            _ -> element.none()
+          },
+          html.div([attribute.class("flex-row-item-center text-xs")], [
+            image.avatar_or_default(
+              city.image_url,
+              city.id,
+              28,
+              "w-[14px] h-[14px] rounded-full mr-0.5",
+            ),
+            html.div([attribute.class("webkit-box-clamp-1")], [
+              element.text(
+                "by " <> display_name(city.nickname, city.name, city.id),
+              ),
+            ]),
+          ]),
+        ]),
       ]),
     ],
   )
 }
 
-fn communities(data: Discover) -> Element(msg) {
-  case visible_groups(data) {
-    [] -> element.none()
-    groups ->
-      html.div([attribute.class("mt-8")], [
-        html.div(
-          [
-            attribute.class(
-              "text-2xl font-semibold mb-3 md:flex-row flex items-center justify-between flex-col",
-            ),
-          ],
-          [html.div([], [element.text("Communities")])],
-        ),
-        // The same grid /communities renders, so the two cannot drift.
-        community_list.from_groups(groups),
-      ])
-  }
-}
-
-/// `communities` comes back empty from the live endpoint today, so `groups`
-/// stands in. When the API starts populating it this switches over without the
-/// section appearing or vanishing.
-fn visible_groups(data: Discover) -> List(Group) {
-  case data.communities {
-    [] -> data.groups
-    communities -> communities
-  }
-}
 
 fn is_featured(city: PopupCity) -> Bool {
   list.any(city.group_tags, fn(tag) { tag == "featured" || tag == ":featured" })
@@ -296,8 +296,8 @@ fn meta_line(value: Option(String)) -> Element(msg) {
 
 fn dates(city: PopupCity) -> Option(String) {
   case city.start_date, city.end_date {
-    Some(start), Some(end) -> Some(event_time.range(start, end))
-    Some(start), None -> Some(event_time.readable(start))
+    Some(start), Some(end) -> Some(event_time.date_span(start, end))
+    Some(start), None -> Some(event_time.one_date(start))
     _, _ -> None
   }
 }

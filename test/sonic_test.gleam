@@ -11,6 +11,7 @@ import gleeunit
 import gleeunit/should
 import sonic/api/decoders
 import sonic/api/types.{type Event}
+import sonic/view/event_time
 
 pub fn main() {
   gleeunit.main()
@@ -143,4 +144,13 @@ pub fn venue_name_decodes_test() {
   let venue = event.venue |> should.be_some
   venue.title
   |> should.equal(Some("Zuzalu Library Event Space - 1st Floor, Building F"))
+}
+
+/// The pop-up city cards print a run as `Nov 11 - Jan 03, 2027` — the year
+/// once, on the end. The values arrive date-only, with no time to parse.
+pub fn date_span_test() {
+  event_time.date_span("2026-11-11", "2027-01-03")
+  |> should.equal("Nov 11 - Jan 03, 2027")
+
+  event_time.one_date("2026-08-05") |> should.equal("Aug 05, 2026")
 }

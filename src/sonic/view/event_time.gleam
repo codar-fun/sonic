@@ -28,12 +28,42 @@ pub fn readable(iso: String) -> String {
   }
 }
 
+/// A pop-up city's run: `Nov 11 - Jan 03, 2027`.
+///
+/// The year appears once, on the end date. These are date-only values from the
+/// API (`2026-11-11`), so they get a midnight time to parse; the clock is
+/// discarded.
+pub fn date_span(start: String, end: String) -> String {
+  short_day(with_time(start)) <> " - " <> short_day(with_time(end)) <> ", " <> year_of(end)
+}
+
+/// `Nov 11, 2027` — one date, for a run with no end.
+pub fn one_date(value: String) -> String {
+  short_day(with_time(value)) <> ", " <> year_of(value)
+}
+
+fn with_time(value: String) -> String {
+  case string.contains(value, "T") {
+    True -> value
+    False -> value <> "T00:00:00Z"
+  }
+}
+
+fn year_of(value: String) -> String {
+  case split(with_time(value)) {
+    Some(#(year, _, _, _, _)) -> int.to_string(year)
+    None -> ""
+  }
+}
+
 /// `2026-08-10` (or a full timestamp) → `Aug 10`. The schedule's day heading,
 /// which is also the anchor its day navigator scrolls to.
 pub fn short_day(iso: String) -> String {
   case split(iso) {
+    // Zero-padded, as upstream prints it: `Sep 02`, not `Sep 2`. The schedule
+    // uses this string as an element id too, so the two have to agree exactly.
     Some(#(_year, month, day, _hour, _minute)) ->
-      month_name(month) <> " " <> int.to_string(day)
+      month_name(month) <> " " <> pad(day)
     None -> iso
   }
 }
