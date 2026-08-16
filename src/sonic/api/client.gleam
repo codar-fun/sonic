@@ -72,6 +72,18 @@ pub fn post(
   send(http.Post, path, query, auth, Some(body), decoder)
 }
 
+/// PATCH a JSON body. Used for partial updates, where sending the whole
+/// record back would overwrite fields this client does not model.
+pub fn patch(
+  path path: String,
+  query query: List(#(String, Option(String))),
+  auth auth: Auth,
+  body body: json.Json,
+  expect decoder: Decoder(a),
+) -> Promise(Result(a, ApiError)) {
+  send(http.Patch, path, query, auth, Some(body), decoder)
+}
+
 fn send(
   method: http.Method,
   path: String,

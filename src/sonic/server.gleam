@@ -35,6 +35,7 @@ import sonic/view/page/event_share
 import sonic/view/page/group_home
 import sonic/view/page/group_people
 import sonic/view/page/profile
+import sonic/view/page/profile_edit
 import sonic/view/page/schedule
 import sonic/view/page/search
 import sonic/view/page/signin
@@ -275,6 +276,9 @@ pub fn handle(req: Request) -> Promise(Response) {
         }),
         signed_in,
       )
+    router.ProfileEdit(handle), Get -> profile_edit_page(handle, req)
+    router.ProfileEdit(handle), Post -> save_profile(handle, req)
+
     router.Profile(handle), _ ->
       render(profile_page(handle, req.token, req), signed_in)
 
@@ -580,6 +584,65 @@ fn profile_page(
           Ok(profile.view(user, tab, [], [], page_or_empty(badges)))
         }
       }
+  }
+}
+
+/// Editing is your own profile only, so it needs a session. Signed out, the
+/// page would be a form that cannot save.
+fn profile_edit_page(handle: String, req: Request) -> Promise(Response) {
+  case req.token {
+    None ->
+      promise.resolve(Redirect(
+        "/signin?return=/profile/" <> handle <> "/edit",
+        None,
+      ))
+    Some(_) -> {
+      use result <- promise.await(profile_api.me(auth: req.token))
+      case result {
+        Ok(user) -> page(200, profile_edit.view(user, None), True)
+        Error(err) -> {
+          let #(status, message) = explain(err)
+          page(status, error_page.view(status, message), True)
+        }
+      }
+    }
+  }
+}
+
+fn save_profile(handle: String, req: Request) -> Promise(Response) {
+  case req.token {
+    None ->
+      promise.resolve(Redirect(
+        "/signin?return=/profile/" <> handle <> "/edit",
+        None,
+      ))
+    Some(_) -> {
+      use result <- promise.await(profile_api.update(
+        nickname: option.unwrap(request.field(req, "nickname"), ""),
+        bio: option.unwrap(request.field(req, "bio"), ""),
+        auth: req.token,
+      ))
+      case result {
+        // The handle can change with the nickname, so the saved record says
+        // where to go rather than the URL this was posted to.
+        Ok(saved) ->
+          promise.resolve(Redirect(
+            "/profile/" <> option.unwrap(saved.name, handle),
+            None,
+          ))
+        Error(err) -> {
+          use current <- promise.await(profile_api.me(auth: req.token))
+          case current {
+            Ok(user) ->
+              page(200, profile_edit.view(user, Some(explain(err).1)), True)
+            Error(_) -> {
+              let #(status, message) = explain(err)
+              page(status, error_page.view(status, message), True)
+            }
+          }
+        }
+      }
+    }
   }
 }
 

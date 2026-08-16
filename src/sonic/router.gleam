@@ -25,6 +25,7 @@ pub type Route {
   Members(handle: String)
   Tracks(handle: String)
   Profile(handle: String)
+  ProfileEdit(handle: String)
   Search
   Signin
   SigninWallet
@@ -66,6 +67,7 @@ pub fn parse(path: String) -> Route {
     ["event", handle, "members"] -> Members(handle)
     ["event", handle, "tracks"] -> Tracks(handle)
     ["profile", handle] -> Profile(handle)
+    ["profile", handle, "edit"] -> ProfileEdit(handle)
     ["event", handle, "schedule", "list"] -> Schedule(handle)
     ["event", handle, "schedule", "compact"] -> ScheduleCompact(handle)
     ["event", handle, "schedule", "venue"] -> ScheduleVenue(handle)
@@ -105,6 +107,7 @@ pub fn href(route: Route) -> String {
     Members(handle) -> "/event/" <> handle <> "/members"
     Tracks(handle) -> "/event/" <> handle <> "/tracks"
     Profile(handle) -> "/profile/" <> handle
+    ProfileEdit(handle) -> "/profile/" <> handle <> "/edit"
     Search -> "/search"
     Signin -> "/signin"
     SigninVerify -> "/signin/verify"

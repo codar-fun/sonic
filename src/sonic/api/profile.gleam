@@ -4,6 +4,7 @@
 //// a profile but the route is users, and the route is what answers.
 
 import gleam/dynamic/decode
+import gleam/json
 import gleam/int
 import gleam/javascript/promise.{type Promise}
 import gleam/option.{Some}
@@ -28,6 +29,43 @@ pub fn detail(
 }
 
 /// `GET /venues?group_id=…` — a group's venues.
+/// `PATCH /users/me` — update the signed-in profile.
+///
+/// Only the fields this form owns are sent. A PATCH with the whole record
+/// would write back whatever this client failed to model, so the narrower
+/// body is the safer one.
+pub fn update(
+  nickname nickname: String,
+  bio bio: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(UserProfile)) {
+  client.patch(
+    path: "/users/me",
+    query: [],
+    auth: auth,
+    body: json.object([
+      #(
+        "user",
+        json.object([
+          #("nickname", json.string(nickname)),
+          #("bio", json.string(bio)),
+        ]),
+      ),
+    ]),
+    expect: decoders.user_profile(),
+  )
+}
+
+/// `GET /users/me` — who the current token belongs to.
+pub fn me(auth auth: Auth) -> Promise(ApiResult(UserProfile)) {
+  client.get(
+    path: "/users/me",
+    query: [],
+    auth: auth,
+    expect: decoders.user_profile(),
+  )
+}
+
 /// `GET /events?<filter>=<handle>` — one of a profile's four event lists.
 ///
 /// The filter name is the whole difference between them: `attendee_id`,
