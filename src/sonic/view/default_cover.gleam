@@ -32,7 +32,26 @@ pub fn view(event: Event, box: Int) -> Element(msg) {
       attribute.class("default-cover w-[452px] h-[452px]"),
       attribute.styles([#("transform", "scale(" <> format(scale) <> ")")]),
     ],
+    contents(event),
+  )
+}
+
+/// The list-card variant. Cards change size at the `sm` breakpoint, so the
+/// scale is two Tailwind classes rather than one computed transform — an
+/// inline style cannot carry a media query.
+pub fn card(event: Event) -> Element(msg) {
+  html.div(
     [
+      attribute.class(
+        "default-cover w-[452px] h-[452px] sm:scale-[0.309] scale-[0.22]",
+      ),
+    ],
+    contents(event),
+  )
+}
+
+fn contents(event: Event) -> List(Element(msg)) {
+  [
       html.div(
         [
           attribute.class(
@@ -61,8 +80,7 @@ pub fn view(event: Event, box: Int) -> Element(msg) {
           )
         None -> element.none()
       },
-    ],
-  )
+  ]
 }
 
 /// The card shows only when the event starts, not the full range: `17:00 GMT+7`.

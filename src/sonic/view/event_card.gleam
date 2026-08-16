@@ -14,6 +14,7 @@ import sonic/api/types.{type Event, type Page}
 import sonic/router
 import sonic/view/badge
 import sonic/view/event_time
+import sonic/view/default_cover
 import sonic/view/image
 
 pub fn list(events: Page(Event)) -> Element(msg) {
@@ -87,7 +88,7 @@ pub fn card(event: Event) -> Element(msg) {
         detail_line("uil-location-point", where(event)),
         detail_line("uil-users-alt", group_of(event)),
       ]),
-      thumbnail(event.cover),
+      thumbnail(event),
     ],
   )
 }
@@ -146,15 +147,26 @@ fn group_of(event: Event) -> Option(String) {
   }
 }
 
-fn thumbnail(url: Option(String)) -> Element(msg) {
-  case url {
+fn thumbnail(event: Event) -> Element(msg) {
+  case event.cover {
     Some(src) if src != "" ->
       image.card_img(
         src,
         "",
         "w-[140px] h-[140px] rounded-lg object-cover shrink-0",
       )
-    _ -> element.none()
+    // An event with no picture still gets a thumbnail — the generated card,
+    // as upstream draws it. Rendering nothing left a ragged column wherever a
+    // list mixed events with and without artwork.
+    _ ->
+      html.div(
+        [
+          attribute.class(
+            "sm:w-[140px] sm:h-[140px] flex-shrink-0 flex-grow-0 w-[100px] h-[100px] overflow-hidden",
+          ),
+        ],
+        [default_cover.card(event)],
+      )
   }
 }
 
