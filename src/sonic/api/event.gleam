@@ -9,7 +9,7 @@ import gleam/javascript/promise.{type Promise}
 import gleam/option.{type Option, None, Some}
 import sonic/api/client.{type ApiResult, type Auth}
 import sonic/api/decoders
-import sonic/api/types.{type Discover, type Event, type Page}
+import sonic/api/types.{type Discover, type Event, type Page, type Participant}
 
 /// `GET /events` — a page of public events, newest page first.
 pub fn list(
@@ -71,6 +71,19 @@ pub fn mine(auth auth: Auth) -> Promise(ApiResult(Page(Event))) {
 
 /// The upstream app links out to an `.ics` file rather than building one, so
 /// this returns the URL instead of fetching it.
+/// `GET /events/:id/participants` — who is attending.
+///
+/// Public: the detail page's Participants tab shows this to anyone, signed in
+/// or not, exactly as upstream does.
+pub fn participants(id id: String) -> Promise(ApiResult(Page(Participant))) {
+  client.get(
+    path: "/events/" <> id <> "/participants",
+    query: [],
+    auth: None,
+    expect: decoders.page(of: decoders.participant()),
+  )
+}
+
 /// `GET /recurring/:id` — the series an event belongs to.
 ///
 /// Only the interval is decoded. The payload also carries every instance,

@@ -141,11 +141,27 @@ pub fn handle(req: Request) -> Promise(Response) {
       use result <- promise.await(event.detail(id: id, auth: req.token))
       case result {
         Ok(found) -> {
-          use repeats <- promise.map(recurrence_of(found))
+          let tab = case request.query(req, "tab") {
+            Some("participants") -> "participants"
+            _ -> "content"
+          }
+          use repeats <- promise.await(recurrence_of(found))
+          // Only fetched for the tab that shows them; the content tab would
+          // pay for a request it never renders.
+          use people <- promise.map(case tab {
+            "participants" ->
+              promise.map(event.participants(id: id), fn(result) {
+                case result {
+                  Ok(page) -> page.data
+                  Error(_) -> []
+                }
+              })
+            _ -> promise.resolve([])
+          })
           Page(
             200,
             document_meta(
-              event_detail.view(found, repeats),
+              event_detail.view(found, repeats, signed_in, tab, people),
               signed_in,
               event_meta(found),
             ),
@@ -247,8 +263,18 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.Profile(handle), _ ->
       render(profile_page(handle, req.token), signed_in)
 
+    // Already signed in: the form would be a dead end, so send them where
+    // they were going instead.
+    router.Signin, Get if signed_in ->
+      promise.resolve(Redirect(
+        option.unwrap(safe_return(request.query(req, "return")), "/"),
+        None,
+      ))
     router.Signin, Get ->
-      auth_page(200, signin.ask_email(None, safe_return(request.query(req, "return"))))
+      auth_page(
+        200,
+        signin.ask_email(None, safe_return(request.query(req, "return"))),
+      )
     router.Signin, Post -> start_signin(req)
     router.SigninVerify, Post -> finish_signin(req)
     router.SigninWallet, Post -> finish_wallet_signin(req)

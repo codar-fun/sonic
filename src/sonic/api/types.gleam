@@ -260,6 +260,11 @@ pub type SearchResults {
 
 /// Someone's membership of a group, with the role that governs what they may
 /// do there.
+/// One person's attendance of an event.
+pub type Participant {
+  Participant(id: String, status: String, user: Option(Profile))
+}
+
 pub type Membership {
   Membership(id: String, role: Option(String), user: Option(Profile))
 }

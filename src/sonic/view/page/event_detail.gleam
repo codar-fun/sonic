@@ -15,13 +15,19 @@ import gleam/option.{type Option, None, Some}
 import lustre/attribute.{attribute}
 import lustre/element.{type Element}
 import lustre/element/html
-import sonic/api/types.{type Event}
+import sonic/api/types.{type Event, type Participant}
 import sonic/view/badge
 import sonic/view/default_cover
 import sonic/view/event_time
 import sonic/view/image
 
-pub fn view(event: Event, repeats: Option(String)) -> Element(msg) {
+pub fn view(
+  event: Event,
+  repeats: Option(String),
+  signed_in: Bool,
+  tab: String,
+  participants: List(Participant),
+) -> Element(msg) {
   html.div([attribute.class("page-width !pt-4 !pb-12")], [
     top_bar(event),
     html.div([attribute.class("flex flex-col sm:flex-row")], [
@@ -31,7 +37,7 @@ pub fn view(event: Event, repeats: Option(String)) -> Element(msg) {
             "min-w-[324px] sm:max-w-[324px] mb-8 order-1 sm:order-2 sm:mb-0",
           ),
         ],
-        [cover(event), participate()],
+        [cover(event), participate(signed_in)],
       ),
       html.div([attribute.class("flex-1 min-w-0 sm:mr-9 order-2 sm:order-1")], [
         html.div([attribute.class("text-4xl font-semibold w-full")], [
@@ -41,8 +47,11 @@ pub fn view(event: Event, repeats: Option(String)) -> Element(msg) {
         host_row(event),
         date_row(event, repeats),
         location_block(event),
-        tabs(event),
-        body(event),
+        tabs(event, tab),
+        case tab {
+          "participants" -> participant_list(participants)
+          _ -> body(event)
+        },
         comments(),
       ]),
     ]),
@@ -327,25 +336,61 @@ fn location_block(event: Event) -> Element(msg) {
 /// Content / Participants(n). Both render the same panel for now — the
 /// participants list is a separate call that is not wired up, and a tab that
 /// silently shows the wrong thing would be worse than one that is honest.
-fn tabs(event: Event) -> Element(msg) {
+/// Links, not buttons. Upstream switches tabs by navigating to `?tab=`, so
+/// these work with no runtime and the chosen tab has its own URL. They were
+/// buttons with no handler, which is why the Participants tab did nothing.
+fn tabs(event: Event, current: String) -> Element(msg) {
+  let base = "/event/detail/" <> event.id
+
   html.div(
-    [attribute.class("flex font-semibold mt-6 scroll-mt-4"), attribute("role", "tablist")],
     [
-      html.button(
-        [
-          attribute.type_("button"),
-          attribute("role", "tab"),
-          attribute("aria-selected", "true"),
-          attribute.class(
-            "flex-1 min-w-0 text-center cursor-pointer text-sm sm:text-base py-1 px-1 sm:px-2 relative whitespace-nowrap",
-          ),
-        ],
-        [
-          html.span([attribute.class("relative z-10")], [
-            element.text("Content"),
-          ]),
-          // The selected tab's underline is an image upstream, not a border —
-          // it is a tapered brush stroke that a border cannot draw.
+      attribute.class("flex font-semibold mt-6 scroll-mt-4"),
+      attribute("role", "tablist"),
+    ],
+    [
+      tab_link(base, "Content", element.none(), current != "participants", ""),
+      tab_link(
+        base <> "?tab=participants",
+        "Participants",
+        html.span([attribute.class("text-xs ml-0.5")], [
+          element.text("(" <> int.to_string(event.participant_count) <> ")"),
+        ]),
+        current == "participants",
+        " border-l-[1px] border-gray-200",
+      ),
+    ],
+  )
+}
+
+fn tab_link(
+  href: String,
+  label: String,
+  suffix: Element(msg),
+  selected: Bool,
+  extra: String,
+) -> Element(msg) {
+  html.a(
+    [
+      attribute.href(href),
+      attribute("role", "tab"),
+      attribute("aria-selected", case selected {
+        True -> "true"
+        False -> "false"
+      }),
+      attribute.class(
+        "flex-1 min-w-0 text-center cursor-pointer text-sm sm:text-base py-1 px-1 sm:px-2 relative whitespace-nowrap"
+        <> extra,
+      ),
+    ],
+    [
+      html.span([attribute.class("relative z-10")], [
+        element.text(label),
+        suffix,
+      ]),
+      case selected {
+        // The selected tab's underline is an image upstream, not a border —
+        // a tapered brush stroke a border cannot draw.
+        True ->
           html.img([
             attribute.src("/static/images/tab_bg.png"),
             attribute.alt(""),
@@ -354,29 +399,47 @@ fn tabs(event: Event) -> Element(msg) {
             attribute.class(
               "w-[64px] sm:w-[80px] absolute left-1/2 -translate-x-1/2 bottom-0",
             ),
-          ]),
-        ],
-      ),
-      html.button(
-        [
-          attribute.type_("button"),
-          attribute("role", "tab"),
-          attribute("aria-selected", "false"),
-          attribute.class(
-            "flex-1 min-w-0 text-center cursor-pointer text-sm sm:text-base py-1 px-1 sm:px-2 relative whitespace-nowrap border-l-[1px] border-gray-200",
-          ),
-        ],
-        [
-          html.span([attribute.class("relative z-10")], [
-            element.text("Participants"),
-            html.span([attribute.class("text-xs ml-0.5")], [
-              element.text("(" <> int.to_string(event.participant_count) <> ")"),
-            ]),
-          ]),
-        ],
-      ),
+          ])
+        False -> element.none()
+      },
     ],
   )
+}
+
+fn participant_list(participants: List(Participant)) -> Element(msg) {
+  case participants {
+    [] ->
+      html.div([attribute.class("text-center text-gray-400 py-10")], [
+        element.text("No one has joined yet."),
+      ])
+    people ->
+      html.div(
+        [attribute.class("grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4")],
+        list.map(people, fn(entry) {
+          case entry.user {
+            Some(user) ->
+              html.a(
+                [
+                  attribute.href("/profile/" <> option_text(user.name)),
+                  attribute.class("flex-row-item-center py-2"),
+                ],
+                [
+                  image.avatar_or_default(
+                    user.image_url,
+                    user.id,
+                    48,
+                    "w-8 h-8 rounded-full mr-2",
+                  ),
+                  html.div([attribute.class("font-semibold text-sm")], [
+                    element.text(name_of(user.nickname, user.name, user.id)),
+                  ]),
+                ],
+              )
+            None -> element.none()
+          }
+        }),
+      )
+  }
 }
 
 /// `content` holds the description; `notes` is a different field that is
@@ -459,9 +522,20 @@ fn cover(event: Event) -> Element(msg) {
   }
 }
 
-/// The participate panel. Joining is a write path and is not built, so this
-/// sends people to sign-in exactly as upstream does for a signed-out visitor.
-fn participate() -> Element(msg) {
+/// The sign-in prompt, for signed-out visitors only.
+///
+/// Upstream swaps this for the attend/RSVP controls once there is a session;
+/// joining is a write path and is not built here, so a signed-in visitor gets
+/// nothing rather than a prompt to sign in when they already have. Showing it
+/// regardless was telling signed-in people to sign in again.
+fn participate(signed_in: Bool) -> Element(msg) {
+  case signed_in {
+    True -> element.none()
+    False -> sign_in_panel()
+  }
+}
+
+fn sign_in_panel() -> Element(msg) {
   html.div(
     [
       attribute.class(
