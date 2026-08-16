@@ -57,6 +57,26 @@ pub fn update(
   )
 }
 
+/// `PATCH /users/me` with only the username.
+///
+/// A wallet or Google sign-in creates an account with `name: null`, and every
+/// page that links to a profile needs a handle — so until this is set the
+/// account exists but cannot be linked to.
+pub fn set_username(
+  name name: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(UserProfile)) {
+  client.patch(
+    path: "/users/me",
+    query: [],
+    auth: auth,
+    body: json.object([
+      #("user", json.object([#("name", json.string(name))])),
+    ]),
+    expect: decoders.user_profile(),
+  )
+}
+
 /// `GET /users/me` — who the current token belongs to.
 pub fn me(auth auth: Auth) -> Promise(ApiResult(UserProfile)) {
   client.get(

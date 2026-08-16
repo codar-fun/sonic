@@ -16,6 +16,8 @@ pub type Route {
   Communities
   GroupCreate
   PopupCities
+  Register
+  EventCreate(handle: String)
   BadgeDetail(id: String)
   BadgeClassDetail(id: String)
   Schedule(handle: String)
@@ -66,6 +68,7 @@ pub fn parse(path: String) -> Route {
     ["event", handle, "schedule"] -> Schedule(handle)
     ["event", handle, "venues"] -> Venues(handle)
     ["event", handle, "tracks"] -> Tracks(handle)
+    ["event", handle, "create"] -> EventCreate(handle)
     ["profile", handle] -> Profile(handle)
     ["profile", handle, "edit"] -> ProfileEdit(handle)
     ["event", handle, "schedule", "list"] -> Schedule(handle)
@@ -76,6 +79,7 @@ pub fn parse(path: String) -> Route {
     ["communities"] -> Communities
     ["group", "create"] -> GroupCreate
     ["popup-city"] -> PopupCities
+    ["register"] -> Register
     ["search"] -> Search
     ["my-events", _] -> MyEvents
     ["lang"] -> SetLanguage
@@ -102,6 +106,8 @@ pub fn href(route: Route) -> String {
     Communities -> "/communities"
     GroupCreate -> "/group/create"
     PopupCities -> "/popup-city"
+    Register -> "/register"
+    EventCreate(handle) -> "/event/" <> handle <> "/create"
     BadgeDetail(id) -> "/badge/" <> id
     BadgeClassDetail(id) -> "/badge-class/" <> id
     Schedule(handle) -> "/event/" <> handle <> "/schedule"

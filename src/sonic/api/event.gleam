@@ -87,6 +87,46 @@ pub fn participants(id id: String) -> Promise(ApiResult(Page(Participant))) {
   )
 }
 
+/// `POST /events` — create an event in a group.
+///
+/// The full draft upstream sends carries roles, tickets, recurrence and a
+/// resolved place id. This sends the fields the form collects and leaves the
+/// rest to the API's defaults: a partial event that is correct beats a full
+/// one built from guesses about fields the form never asked for.
+pub fn create(
+  group_id group_id: String,
+  title title: String,
+  content content: String,
+  start_time start_time: String,
+  end_time end_time: String,
+  timezone timezone: String,
+  meeting_url meeting_url: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(Event)) {
+  client.post(
+    path: "/events",
+    query: [],
+    auth: auth,
+    body: json.object([
+      #(
+        "event",
+        json.object([
+          #("group_id", json.string(group_id)),
+          #("title", json.string(title)),
+          #("content", json.string(content)),
+          #("start_time", json.string(start_time)),
+          #("end_time", json.string(end_time)),
+          #("timezone", json.string(timezone)),
+          #("meeting_url", json.string(meeting_url)),
+          #("status", json.string("published")),
+          #("visibility", json.string("public")),
+        ]),
+      ),
+    ]),
+    expect: decoders.event(),
+  )
+}
+
 /// `GET /comments?comment_type=comment&item_type=Event&item_id=…`
 ///
 /// `comment_type` is not optional even though it looks it: soon's index

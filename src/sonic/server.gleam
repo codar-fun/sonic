@@ -31,6 +31,7 @@ import sonic/view/page/badge_detail
 import sonic/view/page/communities
 import sonic/view/page/discover
 import sonic/view/page/error_page
+import sonic/view/page/event_create
 import sonic/view/page/event_detail
 import sonic/view/page/event_list
 import sonic/view/page/event_share
@@ -38,6 +39,7 @@ import sonic/view/page/group_create
 import sonic/view/page/group_home
 import sonic/view/page/group_people
 import sonic/view/page/popup_cities
+import sonic/view/page/register
 import sonic/view/page/profile
 import sonic/view/page/profile_edit
 import sonic/view/page/schedule
@@ -219,6 +221,10 @@ pub fn handle(req: Request) -> Promise(Response) {
     // The home page has linked here since it was built; the route did not
     // exist, so that link was a 404 on the front page.
     router.PopupCities, _ -> render(popup_cities_page(ctx.lang), ctx)
+    router.EventCreate(handle), Get -> event_create_page(handle, req, None)
+    router.EventCreate(handle), Post -> create_event(handle, req)
+    router.Register, Get -> register_page(req, "", None)
+    router.Register, Post -> save_username(req)
     router.GroupCreate, Get -> group_create_page(req, "", None)
     router.GroupCreate, Post -> create_group(req)
 
@@ -989,6 +995,110 @@ fn post_comment(id: String, req: Request) -> Promise(Response) {
     // someone posting directly. Send them to sign in rather than failing.
     None, _ -> promise.resolve(Redirect("/signin?return=" <> back, None))
     _, _ -> promise.resolve(Redirect(back, None))
+  }
+}
+
+/// Creating an event in a group. Needs a session; the API decides whether
+/// this account may publish in that group.
+fn event_create_page(
+  handle: String,
+  req: Request,
+  problem: Option(String),
+) -> Promise(Response) {
+  let ctx = ctx_of(req)
+  let back = "/event/" <> handle <> "/create"
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    Some(_) -> {
+      use found <- promise.await(group.detail(handle: handle, auth: req.token))
+      case found {
+        Ok(group) ->
+          page(200, event_create.view(group, ctx.lang, problem), ctx)
+        Error(err) -> {
+          let #(status, message) = explain(err)
+          page(status, error_page.view(status, message), ctx)
+        }
+      }
+    }
+  }
+}
+
+fn create_event(handle: String, req: Request) -> Promise(Response) {
+  let back = "/event/" <> handle <> "/create"
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    Some(_) -> {
+      use found <- promise.await(group.detail(handle: handle, auth: req.token))
+      case found {
+        Error(err) -> event_create_page(handle, req, Some(explain(err).1))
+        Ok(group) -> {
+          let field = fn(name) { option.unwrap(request.field(req, name), "") }
+          let zone = case field("timezone") {
+            "" -> option.unwrap(group.timezone, "UTC")
+            value -> value
+          }
+          use result <- promise.await(event.create(
+            group_id: group.id,
+            title: field("title"),
+            content: field("content"),
+            // `datetime-local` gives `2026-08-20T14:30`; the API wants a full
+            // timestamp, and the seconds are the form's to supply, not the
+            // reader's.
+            start_time: field("start_time") <> ":00",
+            end_time: field("end_time") <> ":00",
+            timezone: zone,
+            meeting_url: field("meeting_url"),
+            auth: req.token,
+          ))
+          case result {
+            Ok(created) ->
+              promise.resolve(Redirect("/event/detail/" <> created.id, None))
+            Error(err) ->
+              event_create_page(handle, req, Some(explain(err).1))
+          }
+        }
+      }
+    }
+  }
+}
+
+/// Choosing a username. Needs a session, since it names the account you are
+/// already signed in to.
+fn register_page(
+  req: Request,
+  taken: String,
+  problem: Option(String),
+) -> Promise(Response) {
+  let ctx = ctx_of(req)
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=/register", None))
+    Some(_) -> page(200, register.view(ctx.lang, taken, problem), ctx)
+  }
+}
+
+fn save_username(req: Request) -> Promise(Response) {
+  let name = string.lowercase(option.unwrap(request.field(req, "name"), ""))
+
+  case req.token, group.invalid_name(name) {
+    None, _ -> promise.resolve(Redirect("/signin?return=/register", None))
+    // The same rules as a group handle: it becomes the profile URL.
+    _, Some(problem) -> register_page(req, name, Some(problem))
+    Some(_), None -> {
+      use result <- promise.await(profile_api.set_username(
+        name: name,
+        auth: req.token,
+      ))
+      case result {
+        Ok(saved) ->
+          promise.resolve(Redirect(
+            "/profile/" <> option.unwrap(saved.name, name),
+            None,
+          ))
+        Error(HttpError(status, _)) if status < 500 ->
+          register_page(req, name, Some("That username is not available."))
+        Error(err) -> register_page(req, name, Some(explain(err).1))
+      }
+    }
   }
 }
 
