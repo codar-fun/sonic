@@ -173,6 +173,29 @@ pub fn zone_line(iso: String, zone: Option(String)) -> String {
   }
 }
 
+/// `Aug 25, 23:00 - 23:30 GMT-3` — the card's line, in the event's own zone.
+///
+/// `range_with_zone` renders the UTC clock and appends the zone name, which
+/// puts an event on the wrong calendar day for anyone far enough from UTC.
+pub fn card_line(
+  start: String,
+  end: String,
+  zone: Option(String),
+) -> String {
+  case zone {
+    Some(tz) if tz != "" ->
+      case format_in_zone(start, tz, "stamp") {
+        "" -> range_with_zone(start, end, zone)
+        stamp ->
+          // "2024-08-25 23:00" → "Aug 25"
+          short_day(string.replace(stamp, " ", "T") <> ":00Z")
+          <> ", "
+          <> in_zone_range(start, end, zone)
+      }
+    _ -> range(start, end)
+  }
+}
+
 /// `14:30 - 16:00 GMT+7`
 pub fn in_zone_range(
   start: String,

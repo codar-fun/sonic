@@ -276,7 +276,7 @@ pub fn handle(req: Request) -> Promise(Response) {
         signed_in,
       )
     router.Profile(handle), _ ->
-      render(profile_page(handle, req.token), signed_in)
+      render(profile_page(handle, req.token, req), signed_in)
 
     // Already signed in: the form would be a dead end, so send them where
     // they were going instead.
@@ -532,12 +532,81 @@ fn schedule_interval(
   start_date: String,
 ) -> #(String, String)
 
+/// Only the selected tab's data is fetched. The profile carries four event
+/// lists, its groups and its badges; loading all six for a page that shows one
+/// would be six requests to render one.
 fn profile_page(
   handle: String,
   token: Option(String),
+  req: Request,
 ) -> Promise(Result(Element(msg), ApiError)) {
-  use result <- promise.map(profile_api.detail(handle: handle, auth: token))
-  result |> map_ok(profile.view)
+  let tab = case request.query(req, "tab") {
+    Some("groups") -> profile.Groups
+    Some("badges") -> profile.Badges
+    _ ->
+      profile.Events(case request.query(req, "list") {
+        Some("hosting") -> "hosting"
+        Some("co-hosting") -> "co-hosting"
+        Some("starred") -> "starred"
+        _ -> "attending"
+      })
+  }
+
+  use result <- promise.await(profile_api.detail(handle: handle, auth: token))
+  case result {
+    Error(err) -> promise.resolve(Error(err))
+    Ok(user) ->
+      case tab {
+        profile.Events(which) -> {
+          use events <- promise.map(profile_api.events(
+            filter: event_filter(which),
+            handle: handle,
+            auth: token,
+          ))
+          Ok(profile.view(user, tab, page_or_empty(events), [], []))
+        }
+        profile.Groups -> {
+          use groups <- promise.map(profile_api.groups(
+            handle: handle,
+            auth: token,
+          ))
+          Ok(profile.view(user, tab, [], list_or_empty(groups), []))
+        }
+        profile.Badges -> {
+          use badges <- promise.map(profile_api.badges(
+            handle: handle,
+            auth: token,
+          ))
+          Ok(profile.view(user, tab, [], [], page_or_empty(badges)))
+        }
+      }
+  }
+}
+
+/// The four lists differ only by which filter the API is given.
+fn event_filter(which: String) -> String {
+  case which {
+    "hosting" -> "owner_id"
+    "co-hosting" -> "co_host_id"
+    "starred" -> "starred_id"
+    _ -> "attendee_id"
+  }
+}
+
+/// A failed sub-list renders as empty rather than losing the whole profile:
+/// the page is the person, not any one of their lists.
+fn page_or_empty(result: Result(Page(a), ApiError)) -> List(a) {
+  case result {
+    Ok(page) -> page.data
+    Error(_) -> []
+  }
+}
+
+fn list_or_empty(result: Result(List(a), ApiError)) -> List(a) {
+  case result {
+    Ok(items) -> items
+    Error(_) -> []
+  }
 }
 
 /// Sub-resources are addressed by the group's *id*, not its handle, so the

@@ -4,6 +4,7 @@
 //// render the same card, and three copies of it drifted apart in the upstream
 //// app before it was extracted there too.
 
+import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
@@ -101,6 +102,13 @@ fn status_badge(event: Event) -> Element(msg) {
     "cancelled", _ -> badge.view(badge.Cancel, "Cancelled")
     "pending", _ -> badge.view(badge.Pending, "Pending")
     _, "private" -> badge.view(badge.Private, "Private")
+    // Ongoing and Past both need a clock, so neither can come from the payload.
+    _, _ if True ->
+      case ends_at(event) < now_ms(), starts_at(event) <= now_ms() {
+        True, _ -> badge.view(badge.Past, "Past")
+        False, True -> badge.view(badge.Ongoing, "Ongoing")
+        False, False -> element.none()
+      }
     _, _ -> element.none()
   }
 }
@@ -129,7 +137,7 @@ fn detail_line(glyph: String, value: Option(String)) -> Element(msg) {
 }
 
 fn when(event: Event) -> String {
-  event_time.range_with_zone(event.start_time, event.end_time, event.timezone)
+  event_time.card_line(event.start_time, event.end_time, event.timezone)
 }
 
 fn where(event: Event) -> Option(String) {
@@ -193,3 +201,41 @@ fn first_present(values: List(Option(String))) -> Option(String) {
     [] -> None
   }
 }
+
+/// Upstream's ordering: whatever is happening now first, then what is coming
+/// (soonest first), then what has finished (most recent first). A plain sort by
+/// start time put a profile's oldest event at the top of the page.
+pub fn sort_by_time(events: List(Event)) -> List(Event) {
+  let now = now_ms()
+  list.sort(events, fn(a, b) {
+    case rank(a, now), rank(b, now) {
+      x, y if x != y -> int.compare(x, y)
+      // Both finished: most recently ended first.
+      2, 2 -> int.compare(ends_at(b), ends_at(a))
+      _, _ -> int.compare(starts_at(a), starts_at(b))
+    }
+  })
+}
+
+/// 0 ongoing, 1 upcoming, 2 finished.
+fn rank(event: Event, now: Int) -> Int {
+  case starts_at(event) <= now, ends_at(event) < now {
+    _, True -> 2
+    True, False -> 0
+    False, False -> 1
+  }
+}
+
+fn starts_at(event: Event) -> Int {
+  epoch_ms(event.start_time)
+}
+
+fn ends_at(event: Event) -> Int {
+  epoch_ms(event.end_time)
+}
+
+@external(javascript, "../../sonic_ffi.mjs", "now_ms")
+fn now_ms() -> Int
+
+@external(javascript, "../../sonic_ffi.mjs", "epoch_ms")
+fn epoch_ms(iso: String) -> Int

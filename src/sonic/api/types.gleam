@@ -276,7 +276,14 @@ pub type Participant {
 }
 
 pub type Membership {
-  Membership(id: String, role: Option(String), user: Option(Profile))
+  Membership(
+    id: String,
+    role: Option(String),
+    user: Option(Profile),
+    /// Present when the membership is read from a *user's* side
+    /// (`/users/:handle/groups`); absent when read from a group's.
+    group: Option(GroupDetail),
+  )
 }
 
 /// A programme track, with the dates it runs.

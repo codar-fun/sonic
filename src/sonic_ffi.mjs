@@ -372,6 +372,19 @@ export function label_color(label) {
   return color;
 }
 
+// Milliseconds since the epoch. Sorting a profile's events depends on where
+// "now" falls relative to each of them, which no payload can say.
+export function now_ms() {
+  return Date.now();
+}
+
+// An ISO timestamp as epoch milliseconds; 0 when it cannot be parsed, which
+// sorts such an event to the far past rather than throwing.
+export function epoch_ms(iso) {
+  const t = new Date(iso).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
 // Has this instant already gone by? The "Past" badge depends on a clock, which
 // is why it cannot be decided from the payload alone.
 export function has_passed(iso) {

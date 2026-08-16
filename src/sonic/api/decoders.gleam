@@ -367,7 +367,8 @@ pub fn membership() -> Decoder(Membership) {
   use id <- decode.field("id", decode.string)
   use role <- opt("role", decode.string)
   use user <- opt("user", profile())
-  decode.success(Membership(id:, role:, user:))
+  use group <- opt("group", group_detail())
+  decode.success(Membership(id:, role:, user:, group:))
 }
 
 pub fn track_detail() -> Decoder(TrackDetail) {
