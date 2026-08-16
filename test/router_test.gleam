@@ -4,6 +4,7 @@
 
 import gleam/option.{type Option, None, Some}
 import gleeunit/should
+import sonic/api/group
 import sonic/server
 import sonic/router.{
   EventDetail, EventList, EventShare, GroupHome, Home, NotFound,
@@ -95,4 +96,17 @@ pub fn return_path_must_be_same_site_test() {
 pub fn wallet_signin_route_test() {
   router.parse("/signin/wallet") |> should.equal(router.SigninWallet)
   router.href(router.SigninWallet) |> should.equal("/signin/wallet")
+}
+
+/// The handle becomes the group's URL and cannot be changed, so it is checked
+/// before the group exists rather than after.
+pub fn group_name_rules_test() {
+  group.invalid_name("4seas-nimman") |> should.equal(None)
+  group.invalid_name("") |> should.be_some
+  group.invalid_name("short") |> should.be_some
+  group.invalid_name("-leading") |> should.be_some
+  group.invalid_name("trailing-") |> should.be_some
+  group.invalid_name("double--hyphen") |> should.be_some
+  group.invalid_name("has space") |> should.be_some
+  group.invalid_name("Uppercase") |> should.be_some
 }

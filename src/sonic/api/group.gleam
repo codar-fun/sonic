@@ -5,6 +5,8 @@
 //// hands over.
 
 import gleam/int
+import gleam/json
+import gleam/list
 import gleam/javascript/promise.{type Promise}
 import gleam/option.{type Option, None, Some}
 import gleam/string
@@ -92,6 +94,59 @@ pub fn schedule_events(
     auth: auth,
     expect: decoders.page(of: decoders.event()),
   )
+}
+
+/// `POST /groups` — create a group with this handle.
+pub fn create(
+  name name: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(GroupDetail)) {
+  client.post(
+    path: "/groups",
+    query: [],
+    auth: auth,
+    body: json.object([#("group", json.object([#("name", json.string(name))]))]),
+    expect: decoders.group_detail(),
+  )
+}
+
+/// The handle rules, checked before the request rather than after.
+///
+/// Ported from upstream's `verifyUsername`: lowercase letters and digits,
+/// single hyphens between them but never at either end, 6 to 20 characters.
+/// The name becomes the group's URL and cannot be changed, so rejecting it
+/// here is kinder than a 422 from the server.
+pub fn invalid_name(name: String) -> Option(String) {
+  let length = string.length(name)
+  case name {
+    "" -> Some("Please input a group name")
+    _ ->
+      case
+        string.starts_with(name, "-"),
+        string.ends_with(name, "-"),
+        length < 6,
+        length > 20,
+        is_allowed(name)
+      {
+        True, _, _, _, _ -> Some("Group name cannot start with \"-\"")
+        _, True, _, _, _ -> Some("Group name cannot end with \"-\"")
+        _, _, True, _, _ -> Some("The minimum length of a group name is 6")
+        _, _, _, True, _ -> Some("The maximum length of a group name is 20")
+        _, _, _, _, False ->
+          Some("Group name contains an invalid character")
+        _, _, _, _, True -> None
+      }
+  }
+}
+
+/// a-z, 0-9 and single hyphens between them.
+fn is_allowed(name: String) -> Bool {
+  let chars = string.to_graphemes(name)
+  let allowed =
+    list.all(chars, fn(c) {
+      string.contains("abcdefghijklmnopqrstuvwxyz0123456789-", c)
+    })
+  allowed && !string.contains(name, "--")
 }
 
 /// `GET /groups/directory` — every active group, for `/communities`.

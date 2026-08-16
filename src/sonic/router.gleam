@@ -15,6 +15,7 @@ pub type Route {
   EventComment(id: String)
   GroupHome(handle: String)
   Communities
+  GroupCreate
   BadgeDetail(id: String)
   BadgeClassDetail(id: String)
   Schedule(handle: String)
@@ -75,6 +76,7 @@ pub fn parse(path: String) -> Route {
     ["event", handle, "schedule", "week"] -> ScheduleWeek(handle)
     ["events", id] -> EventDetail(id)
     ["communities"] -> Communities
+    ["group", "create"] -> GroupCreate
     ["search"] -> Search
     ["lang"] -> SetLanguage
     ["badge", id] -> BadgeDetail(id)
@@ -99,6 +101,7 @@ pub fn href(route: Route) -> String {
     EventComment(id) -> "/event/detail/" <> id <> "/comment"
     GroupHome(handle) -> "/event/" <> handle
     Communities -> "/communities"
+    GroupCreate -> "/group/create"
     BadgeDetail(id) -> "/badge/" <> id
     BadgeClassDetail(id) -> "/badge-class/" <> id
     Schedule(handle) -> "/event/" <> handle <> "/schedule"

@@ -34,6 +34,7 @@ import sonic/view/page/error_page
 import sonic/view/page/event_detail
 import sonic/view/page/event_list
 import sonic/view/page/event_share
+import sonic/view/page/group_create
 import sonic/view/page/group_home
 import sonic/view/page/group_people
 import sonic/view/page/profile
@@ -214,6 +215,9 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.EventComment(id), Post -> post_comment(id, req)
     router.EventComment(id), Get ->
       promise.resolve(Redirect("/event/detail/" <> id, None))
+
+    router.GroupCreate, Get -> group_create_page(req, "", None)
+    router.GroupCreate, Post -> create_group(req)
 
     router.Communities, _ -> render(communities_page(req.token), ctx)
     router.Search, _ -> render(search_page(req), ctx)
@@ -971,6 +975,51 @@ fn post_comment(id: String, req: Request) -> Promise(Response) {
     // someone posting directly. Send them to sign in rather than failing.
     None, _ -> promise.resolve(Redirect("/signin?return=" <> back, None))
     _, _ -> promise.resolve(Redirect(back, None))
+  }
+}
+
+/// Creating a group needs a session — the form would have nothing to post to.
+fn group_create_page(
+  req: Request,
+  taken: String,
+  problem: Option(String),
+) -> Promise(Response) {
+  let ctx = ctx_of(req)
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=/group/create", None))
+    Some(_) ->
+      page(200, group_create.view(ctx.lang, taken, problem), ctx)
+  }
+}
+
+fn create_group(req: Request) -> Promise(Response) {
+  let name = string.lowercase(option.unwrap(request.field(req, "name"), ""))
+
+  case req.token, group.invalid_name(name) {
+    None, _ -> promise.resolve(Redirect("/signin?return=/group/create", None))
+    // Checked here rather than left to the server: the name becomes the URL
+    // and cannot be changed, so a rejection should arrive before the group
+    // exists, not after.
+    _, Some(problem) -> group_create_page(req, name, Some(problem))
+    Some(_), None -> {
+      use result <- promise.await(group.create(name: name, auth: req.token))
+      case result {
+        Ok(created) ->
+          promise.resolve(Redirect(
+            "/event/" <> option.unwrap(created.name, name),
+            None,
+          ))
+        // A 4xx here is almost always the name being taken, which is a thing
+        // to say on the form rather than an error page.
+        Error(HttpError(status, _)) if status < 500 ->
+          group_create_page(
+            req,
+            name,
+            Some("That group name is not available."),
+          )
+        Error(err) -> group_create_page(req, name, Some(explain(err).1))
+      }
+    }
   }
 }
 
