@@ -3,6 +3,7 @@
 
 import gleam/option.{None, Some}
 import gleeunit/should
+import sonic/i18n
 import sonic/web/request
 
 pub fn parses_simple_form_test() {
@@ -41,6 +42,7 @@ pub fn field_treats_empty_as_absent_test() {
       path: "/signin",
       form: [#("email", ""), #("code", "9")],
       token: None,
+      lang: i18n.En,
     )
   request.field(req, "email") |> should.equal(None)
   request.field(req, "code") |> should.equal(Some("9"))
@@ -73,7 +75,13 @@ pub fn similar_cookie_names_do_not_match_test() {
 /// path where a wrong answer silently returns "no results".
 pub fn reads_query_parameters_test() {
   let req = fn(path) {
-    request.Request(method: request.Get, path: path, form: [], token: None)
+    request.Request(
+      method: request.Get,
+      path: path,
+      form: [],
+      token: None,
+      lang: i18n.En,
+    )
   }
   request.query(req("/search?keyword=eth"), "keyword")
   |> should.equal(Some("eth"))

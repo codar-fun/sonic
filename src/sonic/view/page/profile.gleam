@@ -14,9 +14,7 @@ import gleam/option.{type Option, None, Some}
 import lustre/attribute.{attribute}
 import lustre/element.{type Element}
 import lustre/element/html
-import sonic/api/types.{
-  type Badge, type Event, type Membership, type UserProfile,
-}
+import sonic/api/types.{type Event, type Membership, type UserProfile}
 import sonic/view/event_card
 import sonic/view/image
 
@@ -24,7 +22,8 @@ import sonic/view/image
 pub type Tab {
   Events(list: String)
   Groups
-  Badges
+  /// `list` is "collected" or "created".
+  Badges(list: String)
 }
 
 pub fn view(
@@ -32,7 +31,7 @@ pub fn view(
   tab: Tab,
   events: List(Event),
   groups: List(Membership),
-  badges: List(Badge),
+  badges: List(#(String, String, String)),
 ) -> Element(msg) {
   html.div(
     [attribute.class("page-width min-h-[100svh] !pt-4 !pb-12 sm:flex-row flex flex-col")],
@@ -47,7 +46,8 @@ pub fn view(
               event_results(events),
             ])
           Groups -> group_results(groups)
-          Badges -> badge_results(badges)
+          Badges(which) ->
+            html.div([], [badge_lists(user, which), badge_results(badges)])
         },
       ]),
     ],
@@ -96,7 +96,7 @@ fn tab_bar(user: UserProfile, current: Tab) -> Element(msg) {
     [
       tab_link(base, "Events", is_events(current)),
       tab_link(base <> "?tab=groups", "Groups", current == Groups),
-      tab_link(base <> "?tab=badges", "Badges", current == Badges),
+      tab_link(base <> "?tab=badges", "Badges", is_badges(current)),
     ],
   )
 }
@@ -106,6 +106,43 @@ fn is_events(tab: Tab) -> Bool {
     Events(_) -> True
     _ -> False
   }
+}
+
+fn is_badges(tab: Tab) -> Bool {
+  case tab {
+    Badges(_) -> True
+    _ -> False
+  }
+}
+
+/// Collected are badges this person holds; Created are the ones they defined.
+/// Two different endpoints, so this is a real switch rather than a filter.
+fn badge_lists(user: UserProfile, current: String) -> Element(msg) {
+  let base = "/profile/" <> handle(user) <> "?tab=badges&list="
+
+  html.div(
+    [attribute.class("flex flex-row-item-center gap-2 my-3")],
+    list.map([#("collected", "Collected"), #("created", "Created")], fn(entry) {
+      let #(key, label) = entry
+      html.a(
+        [
+          attribute.href(base <> key),
+          attribute.class(
+            "font-semibold inline-flex items-center justify-center whitespace-nowrap rounded-lg transition-colors h-9 px-3 shrink-0 "
+            <> case key == current {
+              True -> "border border-foreground bg-background"
+              False -> "hover:bg-secondary"
+            },
+          ),
+        ],
+        [
+          html.span([attribute.class("font-normal text-sm")], [
+            element.text(label),
+          ]),
+        ],
+      )
+    }),
+  )
 }
 
 fn tab_link(href: String, label: String, selected: Bool) -> Element(msg) {
@@ -216,31 +253,42 @@ fn group_results(groups: List(Membership)) -> Element(msg) {
   }
 }
 
-fn badge_results(badges: List(Badge)) -> Element(msg) {
+/// Each entry is #(href, image, title) — collected badges and created badge
+/// classes come from different endpoints and different types, but the card is
+/// the same, so the page takes them already flattened.
+fn badge_results(badges: List(#(String, String, String))) -> Element(msg) {
   case badges {
     [] -> empty("No badges yet.")
     rows ->
       html.div(
-        [attribute.class("grid grid-cols-3 sm:grid-cols-4 gap-3 mt-3")],
-        list.map(rows, fn(badge) {
+        [attribute.class("grid grid-cols-2 gap-3 mt-3")],
+        list.map(rows, fn(entry) {
+          let #(href, picture, title) = entry
           html.a(
             [
-              attribute.href("/badge/" <> badge.id),
-              attribute.class("flex flex-col items-center"),
+              attribute.href(href),
+              attribute.class(
+                "bg-secondary rounded-lg p-4 flex flex-col items-center",
+              ),
             ],
             [
-              case badge.image_url {
-                Some(src) if src != "" ->
-                  image.square_img(src, 160, "", "w-20 h-20 rounded-full")
-                _ ->
+              case picture {
+                "" ->
                   html.div(
-                    [attribute.class("w-20 h-20 rounded-full bg-gray-100")],
+                    [attribute.class("w-[120px] h-[120px] rounded-full bg-gray-100")],
                     [],
+                  )
+                src ->
+                  image.square_img(
+                    src,
+                    240,
+                    "",
+                    "w-[120px] h-[120px] rounded-full",
                   )
               },
               html.div(
-                [attribute.class("text-xs text-center mt-2 line-clamp-2")],
-                [element.text(option_text(badge.title))],
+                [attribute.class("font-semibold text-sm text-center mt-3")],
+                [element.text(title)],
               ),
             ],
           )

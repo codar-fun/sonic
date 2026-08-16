@@ -17,17 +17,18 @@ import lustre/element.{type Element}
 import lustre/element/html
 import sonic/api/types.{type Discover, type PopupCity}
 import sonic/view/goto_tiles
+import sonic/i18n.{type Lang}
 import sonic/view/event_time
 import sonic/view/footer
 import sonic/view/image
 
-pub fn view(data: Discover) -> Element(msg) {
+pub fn view(data: Discover, lang: Lang) -> Element(msg) {
   let featured = list.filter(data.popup_cities, is_featured)
 
   html.div([attribute.class("page-width min-h-[100svh] pt-4 sm:pt-6 !pb-16")], [
     features(featured),
-    create_group_panel(),
-    popup_cities(data.popup_cities),
+    create_group_panel(lang),
+    popup_cities(data.popup_cities, lang),
     goto_tiles.view(),
     footer.view(),
   ])
@@ -110,7 +111,7 @@ fn feature_slide(city: PopupCity) -> Element(msg) {
 /// The create-a-group panel. Upstream gates the button behind a sign-in check
 /// in JavaScript; here it is a link to the same destination, so it works
 /// without a runtime and an anonymous visitor lands on sign-in anyway.
-fn create_group_panel() -> Element(msg) {
+fn create_group_panel(lang: Lang) -> Element(msg) {
   html.div(
     [
       attribute.class(
@@ -128,7 +129,7 @@ fn create_group_panel() -> Element(msg) {
             "font-semibold sm:text-2xl text-base mb-4 text-center",
           ),
         ],
-        [element.text("Want to create your own Group?")],
+        [element.text(i18n.t(lang, "Want to create your own Group?"))],
       ),
       html.div(
         [
@@ -137,9 +138,7 @@ fn create_group_panel() -> Element(msg) {
           ),
         ],
         [
-          element.text(
-            "Start now and let more people freely organize and participate in your exciting events!",
-          ),
+          element.text(i18n.t(lang, "Start now and let more people freely organize and participate in your exciting events!")),
         ],
       ),
       html.a(
@@ -149,13 +148,13 @@ fn create_group_panel() -> Element(msg) {
             "bg-[#EFFFF9] text-sm sm:text-base rounded-lg px-4 py-2",
           ),
         ],
-        [element.text("Create Now")],
+        [element.text(i18n.t(lang, "Create Now"))],
       ),
     ],
   )
 }
 
-fn popup_cities(cities: List(PopupCity)) -> Element(msg) {
+fn popup_cities(cities: List(PopupCity), lang: Lang) -> Element(msg) {
   case cities {
     [] -> element.none()
     _ ->
@@ -169,20 +168,20 @@ fn popup_cities(cities: List(PopupCity)) -> Element(msg) {
             ),
           ],
           [
-            html.div([], [element.text("Pop-up Cities")]),
+            html.div([], [element.text(i18n.t(lang, "Pop-up Cities"))]),
             html.a(
               [
                 attribute.href("/popup-city"),
                 attribute.class("flex-row-item-center text-sm"),
               ],
               [
-                html.span([], [element.text("See all Pop-up Cities events")]),
+                html.span([], [element.text(i18n.t(lang, "See all Pop-up Cities events"))]),
                 html.i([attribute.class("uil-arrow-right text-2xl ml-1")], []),
               ],
             ),
           ],
         ),
-        filters(),
+        filters(lang),
         html.div(
           [
             attribute.class(
@@ -198,7 +197,7 @@ fn popup_cities(cities: List(PopupCity)) -> Element(msg) {
 /// The status filters. Upstream re-queries on click; these are links carrying
 /// the choice in the query string, so they work without JavaScript. Nothing
 /// reads the parameter yet, which is why none is marked active.
-fn filters() -> Element(msg) {
+fn filters(lang: Lang) -> Element(msg) {
   let base =
     "font-semibold inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg ring-offset-background transition-colors border border-foreground bg-background hover:bg-accent hover:opacity-80 h-9 px-3 text-xs"
 
@@ -210,7 +209,7 @@ fn filters() -> Element(msg) {
           attribute.href("/?status=" <> string.lowercase(label)),
           attribute.class(base),
         ],
-        [element.text(label)],
+        [element.text(i18n.t(lang, label))],
       )
     }),
   )

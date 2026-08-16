@@ -11,7 +11,8 @@ import gleam/option.{Some}
 import sonic/api/client.{type ApiResult, type Auth}
 import sonic/api/decoders
 import sonic/api/types.{
-  type Badge, type Event, type Membership, type Page, type SearchResults,
+  type Badge, type BadgeClass, type Event, type Membership, type Page,
+  type SearchResults,
   type UserProfile, type VenueDetail,
 }
 
@@ -99,16 +100,34 @@ pub fn groups(
   )
 }
 
-/// `GET /badges?owner_id=<handle>` — the badges a profile holds.
+/// `GET /badges?owner_handle=<handle>` — the badges a profile holds.
+///
+/// `owner_handle`, not `owner_id`. `owner_id` is not a filter this endpoint
+/// knows: it is accepted, ignored, and answered with every badge on the
+/// platform — 605 of them, of which a page shows whatever the limit allows.
+/// That renders as a plausible profile belonging to nobody.
 pub fn badges(
   handle handle: String,
   auth auth: Auth,
 ) -> Promise(ApiResult(Page(Badge))) {
   client.get(
     path: "/badges",
-    query: [#("owner_id", Some(handle)), #("limit", Some("100"))],
+    query: [#("owner_handle", Some(handle)), #("limit", Some("100"))],
     auth: auth,
     expect: decoders.page(of: decoders.badge()),
+  )
+}
+
+/// `GET /badge_classes?creator_handle=<handle>` — the badges a profile made.
+pub fn badge_classes(
+  handle handle: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(Page(BadgeClass))) {
+  client.get(
+    path: "/badge_classes",
+    query: [#("creator_handle", Some(handle)), #("limit", Some("100"))],
+    auth: auth,
+    expect: decoders.page(of: decoders.badge_class()),
   )
 }
 

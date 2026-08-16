@@ -1,0 +1,135 @@
+//// Translation.
+////
+//// Keys are the English strings themselves, as upstream does — so a view that
+//// has not been translated yet still renders correct English rather than a
+//// missing-key marker, and adding a language is adding a column here.
+////
+//// The Chinese was read off the reference site with its `lang` cookie set to
+//// `zh`, page by page, rather than machine-translated: these are the words
+//// people already see there.
+
+import gleam/list
+
+pub type Lang {
+  En
+  Zh
+}
+
+/// The cookie value, and what the switcher writes.
+pub fn code(lang: Lang) -> String {
+  case lang {
+    En -> "en"
+    Zh -> "zh"
+  }
+}
+
+/// What the header shows for the current language.
+pub fn label(lang: Lang) -> String {
+  case lang {
+    En -> "EN"
+    Zh -> "ZH"
+  }
+}
+
+pub fn parse(value: String) -> Lang {
+  case value {
+    "zh" -> Zh
+    _ -> En
+  }
+}
+
+/// Translate. English falls through untouched, so an untranslated string is
+/// still a correct English one.
+pub fn t(lang: Lang, key: String) -> String {
+  case lang {
+    En -> key
+    Zh ->
+      case list.key_find(zh, key) {
+        Ok(value) -> value
+        Error(_) -> key
+      }
+  }
+}
+
+const zh = [
+  #("Discover", "发现"),
+  #("Sign In", "登录"),
+  #("Sign Out", "登出"),
+  #("Account", "账户"),
+  #("My Events", "我的活动"),
+  #("Communities", "社区"),
+  #("Events", "活动"),
+  #("Groups", "群组"),
+  #("Badges", "徽章"),
+  #("Want to create your own Group?", "想要创建您自己的社区吗？"),
+  #(
+    "Start now and let more people freely organize and participate in your exciting events!",
+    "立即开始，让更多人自由组织和参与您的精彩活动！",
+  ),
+  #("Create Now", "现在创建"),
+  #("Pop-up Cities", "快闪城市"),
+  #("See all Pop-up Cities events", "查看所有快闪城市"),
+  #("All", "全部"),
+  #("Ongoing", "进行中"),
+  #("Upcoming", "即将到来"),
+  #("Past", "已结束"),
+  #("Host", "主持人"),
+  #("Co-Host", "共同发起"),
+  #("View map", "查看地图"),
+  #("Copy Address", "复制地址"),
+  #("Content", "内容"),
+  #("Participants", "参与者"),
+  #("Attending", "已参加"),
+  #("Hosting", "我发起的"),
+  #("Co-hosting", "共同主持"),
+  #("Starred", "已关注"),
+  #("Go", "继续"),
+  #("or", "或"),
+  #("Google Auth", "Google 登录"),
+  #("Ethereum Wallet", "以太坊钱包"),
+  #("Sign in to participate in a fun event", "登录以参加有趣的活动"),
+  #("Event Schedule", "活动日程"),
+  #("Venue List", "场地列表"),
+  #("Go to", "前往"),
+  #("Filter", "筛选"),
+  #("Reset Filter", "重置筛选器"),
+  #("Show Events", "显示活动"),
+  #("Clear All", "清除全部"),
+  #("Cancel", "取消"),
+  #("Save", "保存"),
+  #("Send", "发送"),
+  #("Share", "分享"),
+  #("Share Event", "分享活动"),
+  #("Copy Link", "复制链接"),
+  #("Save Image", "保存图片"),
+  #("Event Detail", "活动详情"),
+  #("Event Home", "活动主页"),
+  #("Create an Event", "创建活动"),
+  #("Scan the code", "扫描二维码"),
+  #("and attend the event", "参加活动"),
+  #("Comments", "评论"),
+  #("Edit Profile", "编辑个人资料"),
+  #("Nickname", "昵称"),
+  #("Bio", "简介"),
+  #("Avatar", "头像"),
+  #("Social Links", "社交链接"),
+  #("Collected", "已收集"),
+  #("Created", "已创建"),
+  #("Time Range", "时间范围"),
+  #("Tags", "标签"),
+  #("About us", "关于我们"),
+  #("Contact us", "联系我们"),
+  #("Feedback", "反馈"),
+  #("We value your feedback!", "我们重视您的反馈！"),
+  #("Sign in to send a comment", "登录后发表评论"),
+  #("Input comment", "输入评论"),
+  #("Venues", "场地"),
+  #("Members", "成员"),
+  #("Tracks", "分轨"),
+  #("Holders", "持有者"),
+  #("Search...", "搜索..."),
+  #("No events yet.", "暂无活动"),
+  #("No events scheduled.", "暂无日程"),
+  #("No venues yet.", "暂无场地"),
+  #("No one has joined yet.", "还没有人参加"),
+]

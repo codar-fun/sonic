@@ -5,6 +5,8 @@
 //// not supposed to know.
 
 import gleam/list
+import gleam/result
+import sonic/i18n.{type Lang}
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/uri
@@ -22,6 +24,8 @@ pub type Request {
     form: List(#(String, String)),
     /// The bearer token from the session cookie, if one was sent.
     token: Option(String),
+    /// The language to render in, from the `lang` cookie.
+    lang: Lang,
   )
 }
 
@@ -33,6 +37,8 @@ pub type Response {
   Page(status: Int, html: String)
   Redirect(to: String, set_session: Option(String))
   ClearSession(to: String)
+  /// Write the language cookie and go back where the switch was made.
+  SetLanguage(code: String, to: String)
 }
 
 /// The cookie the session token travels in. `auth_token` matches the upstream
@@ -103,4 +109,20 @@ pub fn token_from_cookies(header: String) -> Option(String) {
   })
   |> list.first
   |> option.from_result
+}
+
+/// The chosen language, from the `lang` cookie. Absent means English, which
+/// is also what an unrecognised value means — a bad cookie should not blank
+/// the site.
+pub fn lang_from_cookies(header: String) -> String {
+  header
+  |> string.split(";")
+  |> list.filter_map(fn(pair) {
+    case string.split_once(string.trim(pair), "=") {
+      Ok(#(name, value)) if name == "lang" -> Ok(value)
+      _ -> Error(Nil)
+    }
+  })
+  |> list.first
+  |> result.unwrap("en")
 }

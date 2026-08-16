@@ -9,12 +9,14 @@
 //// two that have to be kept in agreement.
 
 import gleam/int
+import gleam/list
 import gleam/io
 import gleam/javascript/promise.{type Promise}
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import lustre/element.{type Element}
 import sonic/api/auth
+import sonic/i18n.{type Lang}
 import sonic/api/badge
 import sonic/api/event
 import sonic/api/group
@@ -42,6 +44,7 @@ import sonic/view/page/signin
 import sonic/view/page/venues
 import sonic/web/request.{
   type Request, type Response, ClearSession, Get, Page, Post, Redirect, Request,
+  SetLanguage,
 }
 
 /// Start listening. The Node event loop keeps the process alive.
@@ -72,6 +75,7 @@ fn dispatch(
       path: path,
       form: request.parse_form(body),
       token: request.token_from_cookies(cookies),
+      lang: i18n.parse(request.lang_from_cookies(cookies)),
     )
 
   use response <- promise.map(handle(request))
@@ -85,6 +89,7 @@ fn encode(response: Response) -> #(Int, String, String, String) {
     Redirect(to, None) -> #(303, "", to, "")
     Redirect(to, Some(token)) -> #(303, "", to, session_cookie(token))
     ClearSession(to) -> #(303, "", to, cleared_cookie())
+    SetLanguage(code, to) -> #(303, "", to, language_cookie(code))
   }
 }
 
@@ -104,6 +109,12 @@ fn session_cookie(token: String) -> String {
   <> secure_flag()
 }
 
+/// Not HttpOnly: the choice is not a secret and the client may want to read
+/// it. A year, because a language preference does not expire meaningfully.
+fn language_cookie(code: String) -> String {
+  "lang=" <> code <> "; Path=/; SameSite=Lax; Max-Age=31536000" <> secure_flag()
+}
+
 fn cleared_cookie() -> String {
   request.session_cookie
   <> "=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
@@ -117,24 +128,39 @@ fn secure_flag() -> String {
   }
 }
 
+/// What every rendered page needs to know about the request it answers.
+///
+/// This replaced a bare `signed_in: Bool` threaded through the same call
+/// sites. Adding language and path as two more parameters would have meant
+/// touching fifty-odd calls; carrying one value means the next thing a page
+/// needs about its request is a field, not another parameter.
+pub type Ctx {
+  Ctx(signed_in: Bool, lang: i18n.Lang, path: String)
+}
+
+fn ctx_of(req: Request) -> Ctx {
+  Ctx(signed_in: req.token != None, lang: req.lang, path: req.path)
+}
+
 /// Route a request to the handler that answers it.
 pub fn handle(req: Request) -> Promise(Response) {
   let signed_in = req.token != None
+  let ctx = ctx_of(req)
 
   case router.parse(req.path), req.method {
-    router.Home, _ -> render(home_page(), signed_in)
-    router.EventList, _ -> render(event_list_page(req.token), signed_in)
+    router.Home, _ -> render(home_page(ctx.lang), ctx)
+    router.EventList, _ -> render(event_list_page(req.token), ctx)
     router.EventShare(id), _ -> {
       use result <- promise.map(event.detail(id: id, auth: req.token))
       case result {
         Ok(found) ->
           Page(
             200,
-            document_meta(event_share.view(found), signed_in, event_meta(found)),
+            document_meta(event_share.view(found), ctx, event_meta(found)),
           )
         Error(err) -> {
           let #(status, message) = explain(err)
-          Page(status, document(error_page.view(status, message), signed_in))
+          Page(status, document(error_page.view(status, message), ctx))
         }
       }
     }
@@ -171,7 +197,7 @@ pub fn handle(req: Request) -> Promise(Response) {
             200,
             document_meta(
               event_detail.view(found, repeats, signed_in, tab, people, talk),
-              signed_in,
+              ctx,
               event_meta(found),
             ),
           )
@@ -180,7 +206,7 @@ pub fn handle(req: Request) -> Promise(Response) {
           let #(status, message) = explain(err)
           promise.resolve(Page(
             status,
-            document(error_page.view(status, message), signed_in),
+            document(error_page.view(status, message), ctx),
           ))
         }
       }
@@ -189,15 +215,26 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.EventComment(id), Get ->
       promise.resolve(Redirect("/event/detail/" <> id, None))
 
-    router.Communities, _ -> render(communities_page(req.token), signed_in)
-    router.Search, _ -> render(search_page(req), signed_in)
-    router.BadgeDetail(id), _ -> render(badge_page(id, req.token), signed_in)
+    router.Communities, _ -> render(communities_page(req.token), ctx)
+    router.Search, _ -> render(search_page(req), ctx)
+    // Writes the choice and returns where it was made, so switching language
+    // keeps you on the page you were reading.
+    router.SetLanguage, _ ->
+      promise.resolve(SetLanguage(
+        // Normalised through the Lang type, so only a language this build
+        // knows can reach the cookie. `safe_return` guards the destination,
+        // which is a path — it is not a validator for the code itself, and
+        // using it here made every switch write "en".
+        i18n.code(i18n.parse(option.unwrap(request.query(req, "to"), "en"))),
+        option.unwrap(safe_return(request.query(req, "return")), "/"),
+      ))
+    router.BadgeDetail(id), _ -> render(badge_page(id, req.token), ctx)
     router.BadgeClassDetail(id), _ ->
-      render(badge_class_page(id, req.token), signed_in)
+      render(badge_class_page(id, req.token), ctx)
     router.GroupHome(handle), _ ->
       render(
         group_home_page(handle, req.token, tab_of(req), signed_in),
-        signed_in,
+        ctx,
       )
     router.Schedule(handle), _ ->
       render(
@@ -209,7 +246,7 @@ pub fn handle(req: Request) -> Promise(Response) {
           request.query(req, "tags"),
           schedule.list_view,
         ),
-        signed_in,
+        ctx,
       )
     router.ScheduleCompact(handle), _ ->
       render(
@@ -221,7 +258,7 @@ pub fn handle(req: Request) -> Promise(Response) {
           request.query(req, "tags"),
           schedule.compact_view,
         ),
-        signed_in,
+        ctx,
       )
     router.ScheduleVenue(handle), _ ->
       render(
@@ -233,7 +270,7 @@ pub fn handle(req: Request) -> Promise(Response) {
           request.query(req, "tags"),
           schedule.venue_view,
         ),
-        signed_in,
+        ctx,
       )
     router.ScheduleWeek(handle), _ ->
       render(
@@ -245,14 +282,14 @@ pub fn handle(req: Request) -> Promise(Response) {
           request.query(req, "tags"),
           schedule.week_view,
         ),
-        signed_in,
+        ctx,
       )
     router.Venues(handle), _ ->
       render(
         group_scoped(handle, req.token, fn(found, _token) {
           promise.resolve(Ok(venues.view(found)))
         }),
-        signed_in,
+        ctx,
       )
     router.Members(handle), _ ->
       render(
@@ -263,7 +300,7 @@ pub fn handle(req: Request) -> Promise(Response) {
           ))
           result |> map_ok(fn(page) { group_people.members(found, page) })
         }),
-        signed_in,
+        ctx,
       )
     router.Tracks(handle), _ ->
       render(
@@ -274,13 +311,13 @@ pub fn handle(req: Request) -> Promise(Response) {
           ))
           result |> map_ok(fn(page) { group_people.tracks(found, page) })
         }),
-        signed_in,
+        ctx,
       )
     router.ProfileEdit(handle), Get -> profile_edit_page(handle, req)
     router.ProfileEdit(handle), Post -> save_profile(handle, req)
 
     router.Profile(handle), _ ->
-      render(profile_page(handle, req.token, req), signed_in)
+      render(profile_page(handle, req.token, req), ctx)
 
     // Already signed in: the form would be a dead end, so send them where
     // they were going instead.
@@ -293,6 +330,7 @@ pub fn handle(req: Request) -> Promise(Response) {
       auth_page(
         200,
         signin.ask_email(None, safe_return(request.query(req, "return"))),
+        ctx,
       )
     router.Signin, Post -> start_signin(req)
     router.SigninVerify, Post -> finish_signin(req)
@@ -319,28 +357,30 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.Health, _ -> promise.resolve(Page(200, "ok"))
 
     router.NotFound, _ ->
-      page(404, error_page.view(404, "No such page."), signed_in)
+      page(404, error_page.view(404, "No such page."), ctx)
   }
 }
 
 // --- sign in ---------------------------------------------------------------
 
 fn start_signin(req: Request) -> Promise(Response) {
+  let ctx = ctx_of(req)
   let back = safe_return(request.field(req, "return"))
   case request.field(req, "email") {
-    None -> auth_page(400, signin.ask_email(Some("Enter an email address."), back))
+    None -> auth_page(400, signin.ask_email(Some("Enter an email address."), back), ctx)
     Some(email) -> {
       use result <- promise.await(auth.request_email_code(email))
       case result {
-        Ok(_) -> auth_page(200, signin.ask_code(email, None, back))
+        Ok(_) -> auth_page(200, signin.ask_code(email, None, back), ctx)
         Error(err) ->
-          auth_page(status_for(err), signin.ask_email(Some(explain(err).1), back))
+          auth_page(status_for(err), signin.ask_email(Some(explain(err).1), back), ctx)
       }
     }
   }
 }
 
 fn finish_signin(req: Request) -> Promise(Response) {
+  let ctx = ctx_of(req)
   case request.field(req, "email"), request.field(req, "code") {
     Some(email), Some(code) -> {
       use result <- promise.await(auth.verify_email_code(email, code))
@@ -358,7 +398,7 @@ fn finish_signin(req: Request) -> Promise(Response) {
               Some("That code didn't work."),
               safe_return(request.field(req, "return")),
             ),
-            False,
+            ctx,
           )
         Error(err) ->
           page(
@@ -368,21 +408,29 @@ fn finish_signin(req: Request) -> Promise(Response) {
               Some(explain(err).1),
               safe_return(request.field(req, "return")),
             ),
-            False,
+            ctx,
           )
       }
     }
     Some(email), None ->
-      auth_page(400, signin.ask_code(email, Some("Enter the code."), safe_return(request.field(req, "return"))))
+      auth_page(
+        400,
+        signin.ask_code(
+          email,
+          Some("Enter the code."),
+          safe_return(request.field(req, "return")),
+        ),
+        ctx,
+      )
     None, _ -> promise.resolve(Redirect("/signin", None))
   }
 }
 
 // --- pages -----------------------------------------------------------------
 
-fn home_page() -> Promise(Result(Element(msg), ApiError)) {
+fn home_page(lang: Lang) -> Promise(Result(Element(msg), ApiError)) {
   use result <- promise.map(event.discover())
-  result |> map_ok(discover.view)
+  result |> map_ok(fn(data) { discover.view(data, lang) })
 }
 
 fn event_list_page(
@@ -546,7 +594,11 @@ fn profile_page(
 ) -> Promise(Result(Element(msg), ApiError)) {
   let tab = case request.query(req, "tab") {
     Some("groups") -> profile.Groups
-    Some("badges") -> profile.Badges
+    Some("badges") ->
+      profile.Badges(case request.query(req, "list") {
+        Some("created") -> "created"
+        _ -> "collected"
+      })
     _ ->
       profile.Events(case request.query(req, "list") {
         Some("hosting") -> "hosting"
@@ -576,12 +628,43 @@ fn profile_page(
           ))
           Ok(profile.view(user, tab, [], list_or_empty(groups), []))
         }
-        profile.Badges -> {
+        profile.Badges("created") -> {
+          use classes <- promise.map(profile_api.badge_classes(
+            handle: handle,
+            auth: token,
+          ))
+          Ok(profile.view(
+            user,
+            tab,
+            [],
+            [],
+            list.map(page_or_empty(classes), fn(entry) {
+              #(
+                "/badge-class/" <> entry.id,
+                option.unwrap(entry.image_url, ""),
+                option.unwrap(entry.title, ""),
+              )
+            }),
+          ))
+        }
+        profile.Badges(_) -> {
           use badges <- promise.map(profile_api.badges(
             handle: handle,
             auth: token,
           ))
-          Ok(profile.view(user, tab, [], [], page_or_empty(badges)))
+          Ok(profile.view(
+            user,
+            tab,
+            [],
+            [],
+            list.map(page_or_empty(badges), fn(entry) {
+              #(
+                "/badge/" <> entry.id,
+                option.unwrap(entry.image_url, ""),
+                option.unwrap(entry.title, ""),
+              )
+            }),
+          ))
         }
       }
   }
@@ -590,6 +673,7 @@ fn profile_page(
 /// Editing is your own profile only, so it needs a session. Signed out, the
 /// page would be a form that cannot save.
 fn profile_edit_page(handle: String, req: Request) -> Promise(Response) {
+  let ctx = ctx_of(req)
   case req.token {
     None ->
       promise.resolve(Redirect(
@@ -599,10 +683,10 @@ fn profile_edit_page(handle: String, req: Request) -> Promise(Response) {
     Some(_) -> {
       use result <- promise.await(profile_api.me(auth: req.token))
       case result {
-        Ok(user) -> page(200, profile_edit.view(user, None), True)
+        Ok(user) -> page(200, profile_edit.view(user, None), ctx)
         Error(err) -> {
           let #(status, message) = explain(err)
-          page(status, error_page.view(status, message), True)
+          page(status, error_page.view(status, message), ctx)
         }
       }
     }
@@ -610,6 +694,7 @@ fn profile_edit_page(handle: String, req: Request) -> Promise(Response) {
 }
 
 fn save_profile(handle: String, req: Request) -> Promise(Response) {
+  let ctx = ctx_of(req)
   case req.token {
     None ->
       promise.resolve(Redirect(
@@ -634,10 +719,10 @@ fn save_profile(handle: String, req: Request) -> Promise(Response) {
           use current <- promise.await(profile_api.me(auth: req.token))
           case current {
             Ok(user) ->
-              page(200, profile_edit.view(user, Some(explain(err).1)), True)
+              page(200, profile_edit.view(user, Some(explain(err).1)), ctx)
             Error(_) -> {
               let #(status, message) = explain(err)
-              page(status, error_page.view(status, message), True)
+              page(status, error_page.view(status, message), ctx)
             }
           }
         }
@@ -712,29 +797,34 @@ fn search_page(req: Request) -> Promise(Result(Element(msg), ApiError)) {
 
 fn render(
   page: Promise(Result(Element(msg), ApiError)),
-  signed_in: Bool,
+  ctx: Ctx,
 ) -> Promise(Response) {
   use result <- promise.map(page)
   case result {
-    Ok(body) -> Page(200, document(body, signed_in))
+    Ok(body) -> Page(200, document(body, ctx))
     Error(err) -> {
       let #(status, message) = explain(err)
-      Page(status, document(error_page.view(status, message), signed_in))
+      Page(status, document(error_page.view(status, message), ctx))
     }
   }
 }
 
-fn page(status: Int, body: Element(msg), signed_in: Bool) -> Promise(Response) {
-  promise.resolve(Page(status, document(body, signed_in)))
+fn page(status: Int, body: Element(msg), ctx: Ctx) -> Promise(Response) {
+  promise.resolve(Page(status, document(body, ctx)))
 }
 
 /// Auth pages use the stripped header — showing Discover, search and a Sign In
 /// button on the sign-in page itself would be odd, and upstream drops them.
-fn auth_page(status: Int, body: Element(msg)) -> Promise(Response) {
+fn auth_page(status: Int, body: Element(msg), ctx: Ctx) -> Promise(Response) {
   promise.resolve(Page(
     status,
     "<!doctype html>"
-      <> element.to_string(layout.auth_document(body, layout.site_meta())),
+      <> element.to_string(layout.auth_document(
+        body,
+        layout.site_meta(),
+        ctx.lang,
+        ctx.path,
+      )),
   ))
 }
 
@@ -775,17 +865,19 @@ fn map_ok(
   }
 }
 
-fn document(body: Element(msg), signed_in: Bool) -> String {
-  document_meta(body, signed_in, layout.site_meta())
+fn document(body: Element(msg), ctx: Ctx) -> String {
+  document_meta(body, ctx, layout.site_meta())
 }
 
-fn document_meta(
-  body: Element(msg),
-  signed_in: Bool,
-  meta: layout.Meta,
-) -> String {
+fn document_meta(body: Element(msg), ctx: Ctx, meta: layout.Meta) -> String {
   "<!doctype html>"
-  <> element.to_string(layout.document_with(body, signed_in, meta))
+  <> element.to_string(layout.document_with(
+    body,
+    ctx.signed_in,
+    meta,
+    ctx.lang,
+    ctx.path,
+  ))
 }
 
 /// A shared link to an event should preview as that event, not as the site.
@@ -826,6 +918,7 @@ fn host() -> String
 /// here rather than to the API directly, so the session cookie is set HttpOnly
 /// by the same path as email sign-in instead of living in reachable script.
 fn finish_wallet_signin(req: Request) -> Promise(Response) {
+  let ctx = ctx_of(req)
   let back = option.unwrap(safe_return(request.field(req, "return")), "/")
 
   case request.field(req, "message"), request.field(req, "signature") {
@@ -843,6 +936,7 @@ fn finish_wallet_signin(req: Request) -> Promise(Response) {
               Some("That wallet signature was not accepted."),
               safe_return(request.field(req, "return")),
             ),
+            ctx,
           )
         Error(err) ->
           auth_page(
@@ -851,6 +945,7 @@ fn finish_wallet_signin(req: Request) -> Promise(Response) {
               Some(explain(err).1),
               safe_return(request.field(req, "return")),
             ),
+            ctx,
           )
       }
     }
@@ -861,6 +956,7 @@ fn finish_wallet_signin(req: Request) -> Promise(Response) {
 /// Leaving a comment. Back to the event either way — the page re-fetches the
 /// list, so a successful comment is visible on arrival.
 fn post_comment(id: String, req: Request) -> Promise(Response) {
+  let ctx = ctx_of(req)
   let back = "/event/detail/" <> id
   case req.token, request.field(req, "content") {
     Some(token), Some(content) if content != "" -> {

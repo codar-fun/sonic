@@ -27,6 +27,7 @@ pub type Route {
   Profile(handle: String)
   ProfileEdit(handle: String)
   Search
+  SetLanguage
   Signin
   SigninWallet
   SigninNonce
@@ -75,6 +76,7 @@ pub fn parse(path: String) -> Route {
     ["events", id] -> EventDetail(id)
     ["communities"] -> Communities
     ["search"] -> Search
+    ["lang"] -> SetLanguage
     ["badge", id] -> BadgeDetail(id)
     ["badge-class", id] -> BadgeClassDetail(id)
     ["signin"] -> Signin
@@ -109,6 +111,7 @@ pub fn href(route: Route) -> String {
     Profile(handle) -> "/profile/" <> handle
     ProfileEdit(handle) -> "/profile/" <> handle <> "/edit"
     Search -> "/search"
+    SetLanguage -> "/lang"
     Signin -> "/signin"
     SigninVerify -> "/signin/verify"
     SigninWallet -> "/signin/wallet"
