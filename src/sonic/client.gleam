@@ -12,6 +12,7 @@
 import gleam/option
 import lustre
 import lustre/element.{type Element}
+import sonic/i18n
 import sonic/ui/menu
 import sonic/view/layout
 
@@ -40,7 +41,7 @@ fn mount_menu() -> Nil {
 }
 
 pub type Model {
-  Model(open: Bool, signed_in: Bool)
+  Model(open: Bool, signed_in: Bool, lang: i18n.Lang)
 }
 
 pub type Msg {
@@ -51,7 +52,11 @@ pub type Msg {
 fn init(_flags) -> Model {
   // The server renders the trigger with a data attribute saying whether there
   // is a session; reading it back avoids a second source of truth in JS.
-  Model(open: False, signed_in: signed_in_flag())
+  Model(
+    open: False,
+    signed_in: signed_in_flag(),
+    lang: i18n.parse(current_lang()),
+  )
 }
 
 fn update(model: Model, msg: Msg) -> Model {
@@ -64,16 +69,19 @@ fn update(model: Model, msg: Msg) -> Model {
 fn view(model: Model) -> Element(Msg) {
   menu.view(
     open: model.open,
-    label: layout.menu_label(model.signed_in),
+    label: layout.menu_label_in(model.signed_in, model.lang),
     on_toggle: option.Some(Toggled),
     on_dismiss: option.Some(Dismissed),
     // Same source as the server render, so the two cannot disagree.
-    items: layout.menu_items(model.signed_in),
+    items: layout.menu_items_in(model.signed_in, model.lang),
   )
 }
 
 @external(javascript, "../sonic_client_ffi.mjs", "signed_in_flag")
 fn signed_in_flag() -> Bool
+
+@external(javascript, "../sonic_client_ffi.mjs", "current_lang")
+fn current_lang() -> String
 
 @external(javascript, "../sonic_client_ffi.mjs", "wire_share_buttons")
 fn wire_share_buttons() -> Nil

@@ -9,6 +9,13 @@ export function signed_in_flag() {
   return root?.dataset?.signedIn === "true";
 }
 
+// The language the server rendered in. The menu is re-rendered on the client,
+// and without this it came back in English on a Chinese page.
+export function current_lang() {
+  const root = globalThis.document?.querySelector("#account-menu");
+  return root?.dataset?.lang ?? "en";
+}
+
 // The share card's two buttons that act on the page rather than navigate.
 //
 // Wired here with plain listeners instead of as a Lustre app: neither one has

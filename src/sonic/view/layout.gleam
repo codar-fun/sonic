@@ -283,6 +283,9 @@ fn account(signed_in: Bool, lang: Lang, path: String) -> Element(msg) {
           True -> "true"
           False -> "false"
         }),
+        // The client re-renders this menu, so it needs the language too —
+        // without it hydration replaced the translated label with English.
+        attribute("data-lang", i18n.code(lang)),
       ],
       [
         menu.view(
@@ -290,7 +293,7 @@ fn account(signed_in: Bool, lang: Lang, path: String) -> Element(msg) {
           label: menu_label_in(signed_in, lang),
           on_toggle: option.None,
           on_dismiss: option.None,
-          items: menu_items(signed_in),
+          items: menu_items_in(signed_in, lang),
         ),
       ],
     ),
@@ -299,36 +302,62 @@ fn account(signed_in: Bool, lang: Lang, path: String) -> Element(msg) {
 
 /// The language switcher.
 ///
-/// Both options are always in the markup, shown on hover by CSS, so switching
-/// needs no runtime. Each is a link to /lang, which writes the cookie and
-/// sends you back to the page you were on — so the choice survives navigation
-/// and the URL you were reading is not lost to it.
+/// Click, not hover: a hover-only menu cannot be opened on a touch screen at
+/// all, which is most of the traffic this header sees. The open state is a
+/// hidden checkbox — the same trick the dialog uses — so it needs no runtime,
+/// and a label over the whole viewport behind it closes the menu when you
+/// click away.
 fn language_switcher(lang: Lang, path: String) -> Element(msg) {
-  html.div([attribute.class("cursor-pointer group relative")], [
-    html.div([attribute.class("$dropdown-trigger")], [
-      element.text(i18n.label(lang)),
+  let id = "lang-menu"
+
+  html.div([attribute.class("relative")], [
+    html.input([
+      attribute.type_("checkbox"),
+      attribute.id(id),
+      attribute.class("peer hidden"),
     ]),
+    html.label(
+      [
+        attribute.for(id),
+        attribute.class("cursor-pointer select-none block px-1"),
+        attribute.attribute("role", "button"),
+        attribute.attribute("tabindex", "0"),
+        attribute.attribute("aria-haspopup", "menu"),
+        attribute.attribute("aria-label", "Language"),
+      ],
+      [element.text(i18n.label(lang))],
+    ),
+    // Click-away. Behind the panel, in front of everything else.
+    html.label(
+      [
+        attribute.for(id),
+        attribute.class("hidden peer-checked:block fixed inset-0 z-[9998]"),
+      ],
+      [],
+    ),
     html.div(
       [
+        attribute.attribute("role", "menu"),
         attribute.class(
-          "hidden group-hover:block absolute right-0 top-full bg-background shadow rounded-lg p-2 z-[9999] min-w-[72px]",
+          "hidden peer-checked:block absolute right-0 top-[calc(100%+8px)] bg-background shadow-lg rounded-lg p-2 z-[9999] min-w-[80px]",
         ),
       ],
-      list.map([i18n.En, i18n.Zh], fn(option) {
+      list.map([i18n.En, i18n.Zh], fn(choice) {
         html.a(
           [
             attribute.href(
-              "/lang?to=" <> i18n.code(option) <> "&return=" <> path,
+              "/lang?to=" <> i18n.code(choice) <> "&return=" <> path,
             ),
+            attribute.attribute("role", "menuitem"),
             attribute.class(
-              "block rounded-lg mb-1 last:mb-0 py-2 px-3 hover:bg-[#F1F1F1] "
-              <> case option == lang {
+              "block rounded-lg mb-1 last:mb-0 py-2 px-3 text-center hover:bg-[#F1F1F1] "
+              <> case choice == lang {
                 True -> "bg-[#F1F1F1]"
                 False -> ""
               },
             ),
           ],
-          [html.div([attribute.class("w-14")], [element.text(i18n.label(option))])],
+          [element.text(i18n.label(choice))],
         )
       }),
     ),
@@ -351,4 +380,13 @@ pub fn menu_items(signed_in: Bool) -> List(#(String, String)) {
     True -> [#("My Events", "/my-events/attended"), #("Sign Out", "/signout")]
     False -> [#("Sign In", "/signin")]
   }
+}
+
+pub fn menu_items_in(
+  signed_in: Bool,
+  lang: Lang,
+) -> List(#(String, String)) {
+  list.map(menu_items(signed_in), fn(item) {
+    #(i18n.t(lang, item.0), item.1)
+  })
 }
