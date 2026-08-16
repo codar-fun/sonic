@@ -12,6 +12,7 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import sonic/api/types.{type Event}
+import sonic/view/default_cover
 import sonic/view/event_time
 import sonic/view/image
 
@@ -46,7 +47,7 @@ fn card(event: Event) -> Element(msg) {
       ),
     ],
     [
-      cover(event.cover),
+      cover(event),
       html.div(
         [
           attribute.class(
@@ -65,22 +66,25 @@ fn card(event: Event) -> Element(msg) {
 
 /// Scaled down, not cropped: the card shows the whole cover, so a wide
 /// illustration stays wide instead of being centre-cut to a card thumbnail.
-fn cover(url: Option(String)) -> Element(msg) {
-  case url {
+fn cover(event: Event) -> Element(msg) {
+  case event.cover {
     Some(src) if src != "" ->
       image.exportable_img(
         src,
         "",
         "block max-h-[200px] max-w-[295px] mx-auto rounded-lg",
       )
+    // Not a grey box: an event with no picture gets a card carrying its title,
+    // start and place. This page exists to be shared, and a blank rectangle is
+    // the whole preview rather than a small blemish on it.
     _ ->
       html.div(
         [
           attribute.class(
-            "block h-[200px] max-w-[295px] mx-auto rounded-lg bg-gray-100",
+            "mb-4 flex-shrink-0 w-[200px] h-[200px] overflow-hidden mx-auto",
           ),
         ],
-        [],
+        [default_cover.view(event, 200)],
       )
   }
 }

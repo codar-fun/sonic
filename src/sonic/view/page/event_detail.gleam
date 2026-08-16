@@ -17,6 +17,7 @@ import lustre/element.{type Element}
 import lustre/element/html
 import sonic/api/types.{type Event}
 import sonic/view/badge
+import sonic/view/default_cover
 import sonic/view/event_time
 import sonic/view/image
 
@@ -30,7 +31,7 @@ pub fn view(event: Event, repeats: Option(String)) -> Element(msg) {
             "min-w-[324px] sm:max-w-[324px] mb-8 order-1 sm:order-2 sm:mb-0",
           ),
         ],
-        [cover(event.cover), participate()],
+        [cover(event), participate()],
       ),
       html.div([attribute.class("flex-1 min-w-0 sm:mr-9 order-2 sm:order-1")], [
         html.div([attribute.class("text-4xl font-semibold w-full")], [
@@ -436,8 +437,8 @@ fn comments() -> Element(msg) {
   ])
 }
 
-fn cover(url: Option(String)) -> Element(msg) {
-  case url {
+fn cover(event: Event) -> Element(msg) {
+  case event.cover {
     // Shown whole rather than cropped to a square: this is the event's own
     // artwork, and a centre-crop cut the ends off wide covers.
     Some(src) if src != "" ->
@@ -447,10 +448,12 @@ fn cover(url: Option(String)) -> Element(msg) {
         attribute.class("max-w-[450px] w-full mx-auto"),
         ..image.eager()
       ])
+    // Same generated card as the share page — an event without artwork still
+    // has a title, a time and a place worth showing.
     _ ->
       html.div(
-        [attribute.class("max-w-[450px] w-full h-[324px] mx-auto bg-gray-100")],
-        [],
+        [attribute.class("w-[324px] h-[324px] overflow-hidden mx-auto")],
+        [default_cover.view(event, 324)],
       )
   }
 }

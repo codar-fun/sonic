@@ -153,7 +153,7 @@ body {
     position: relative;
     flex-shrink: 0;
     flex-grow: 0;
-    background-image: url("/images/default_event_cover.png");
+    background-image: url("/static/images/default_event_cover.png");
     background-size: 100% 100%;
     transform-origin: 0 0;
 }
