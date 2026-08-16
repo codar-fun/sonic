@@ -15,7 +15,7 @@ import gleam/option.{type Option, None, Some}
 import lustre/attribute.{attribute}
 import lustre/element.{type Element}
 import lustre/element/html
-import sonic/api/types.{type Event, type Participant}
+import sonic/api/types.{type Comment, type Event, type Participant}
 import sonic/view/badge
 import sonic/view/default_cover
 import sonic/view/event_time
@@ -27,6 +27,7 @@ pub fn view(
   signed_in: Bool,
   tab: String,
   participants: List(Participant),
+  comments_list: List(Comment),
 ) -> Element(msg) {
   html.div([attribute.class("page-width !pt-4 !pb-12")], [
     top_bar(event),
@@ -52,7 +53,7 @@ pub fn view(
           "participants" -> participant_list(participants)
           _ -> body(event)
         },
-        comments(),
+        comments(event, signed_in, comments_list),
       ]),
     ]),
   ])
@@ -464,10 +465,58 @@ fn body(event: Event) -> Element(msg) {
   }
 }
 
-fn comments() -> Element(msg) {
+fn comments(
+  event: Event,
+  signed_in: Bool,
+  posted: List(Comment),
+) -> Element(msg) {
   html.div([attribute.class("mt-6")], [
     html.div([attribute.class("font-semibold")], [element.text("Comments")]),
-    html.div([attribute.class("py-4 flex flex-row w-full !items-start")], [
+    comment_box(event, signed_in),
+    html.div(
+      [attribute.class("grid grid-cols-1 gap-8 mt-8 w-full")],
+      list.map(posted, comment_row),
+    ),
+  ])
+}
+
+fn comment_row(entry: Comment) -> Element(msg) {
+  html.div([attribute.class("flex flex-row w-full !items-start")], [
+    case entry.user {
+      Some(user) ->
+        image.avatar_or_default(
+          user.image_url,
+          user.id,
+          48,
+          "w-9 h-9 rounded-full mr-2 border",
+        )
+      None -> element.none()
+    },
+    html.div([attribute.class("flex-1 min-w-0")], [
+      html.div([attribute.class("font-semibold text-sm")], [
+        element.text(case entry.user {
+          Some(user) -> name_of(user.nickname, user.name, user.id)
+          None -> ""
+        }),
+      ]),
+      html.div([attribute.class("text-sm break-words")], [
+        element.text(option_text(entry.content)),
+      ]),
+    ]),
+  ])
+}
+
+/// Signed in, this posts for real. Signed out it keeps upstream's prompt —
+/// what it must not do is tell someone who is already signed in to sign in,
+/// which is what it did on every event page.
+fn comment_box(event: Event, signed_in: Bool) -> Element(msg) {
+  html.form(
+    [
+      attribute.method("post"),
+      attribute.action("/event/detail/" <> event.id <> "/comment"),
+      attribute.class("py-4 flex flex-row w-full !items-start"),
+    ],
+    [
       // The signed-out avatar is the shipped default, as upstream renders it.
       html.img([
         attribute.src("/static/images/default_avatar/avatar_1.png"),
@@ -481,24 +530,39 @@ fn comments() -> Element(msg) {
               "flex w-full bg-secondary px-3 py-2 text-base outline-none min-h-[60px] !border-0 md:text-sm",
             ),
             attribute.placeholder("Input comment"),
-            attribute.disabled(True),
+            attribute.name("content"),
+            attribute.required(signed_in),
+            attribute.disabled(!signed_in),
           ],
           "",
         ),
         html.div([attribute.class("flex-row-item-center justify-end")], [
-          html.a(
-            [
-              attribute.href("/signin"),
-              attribute.class(
-                "font-semibold inline-flex items-center justify-center whitespace-nowrap rounded-lg bg-foreground text-white hover:opacity-80 h-7 px-3 text-xs mt-2",
-              ),
-            ],
-            [element.text("Sign in to send a comment")],
-          ),
+          case signed_in {
+            True ->
+              html.button(
+                [
+                  attribute.type_("submit"),
+                  attribute.class(
+                    "font-semibold inline-flex items-center justify-center whitespace-nowrap rounded-lg bg-foreground text-white hover:opacity-80 h-7 px-3 text-xs mt-2",
+                  ),
+                ],
+                [element.text("Send")],
+              )
+            False ->
+              html.a(
+                [
+                  attribute.href("/signin?return=/event/detail/" <> event.id),
+                  attribute.class(
+                    "font-semibold inline-flex items-center justify-center whitespace-nowrap rounded-lg bg-foreground text-white hover:opacity-80 h-7 px-3 text-xs mt-2",
+                  ),
+                ],
+                [element.text("Sign in to send a comment")],
+              )
+          },
         ]),
       ]),
-    ]),
-  ])
+    ],
+  )
 }
 
 fn cover(event: Event) -> Element(msg) {

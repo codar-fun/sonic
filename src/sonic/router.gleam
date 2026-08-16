@@ -12,6 +12,7 @@ pub type Route {
   EventList
   EventDetail(id: String)
   EventShare(id: String)
+  EventComment(id: String)
   GroupHome(handle: String)
   Communities
   BadgeDetail(id: String)
@@ -49,6 +50,7 @@ pub fn parse(path: String) -> Route {
     ["discover"] -> Home
     ["events"] -> EventList
     ["event", "detail", id] -> EventDetail(id)
+    ["event", "detail", id, "comment"] -> EventComment(id)
     ["event", "share", id] -> EventShare(id)
     // `detail` is a path segment, not a group handle. Without this guard
     // /event/detail (the id-less form) would resolve to a group named
@@ -90,6 +92,7 @@ pub fn href(route: Route) -> String {
     EventList -> "/events"
     EventDetail(id) -> "/event/detail/" <> id
     EventShare(id) -> "/event/share/" <> id
+    EventComment(id) -> "/event/detail/" <> id <> "/comment"
     GroupHome(handle) -> "/event/" <> handle
     Communities -> "/communities"
     BadgeDetail(id) -> "/badge/" <> id

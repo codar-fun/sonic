@@ -260,6 +260,16 @@ pub type SearchResults {
 
 /// Someone's membership of a group, with the role that governs what they may
 /// do there.
+/// A comment on an event. Fields follow soon's CommentBlueprint.
+pub type Comment {
+  Comment(
+    id: String,
+    content: Option(String),
+    created_at: Option(String),
+    user: Option(Profile),
+  )
+}
+
 /// One person's attendance of an event.
 pub type Participant {
   Participant(id: String, status: String, user: Option(Profile))

@@ -26,6 +26,7 @@ pub fn view(
   group: GroupDetail,
   events: Page(Event),
   tab: String,
+  signed_in: Bool,
 ) -> Element(msg) {
   html.div(
     [
@@ -45,7 +46,7 @@ pub fn view(
             "md:w-[328px] ml-0 flex-col flex order-1 md:order-2 md:ml-6 mb-6",
           ),
         ],
-        [sidebar(group)],
+        [sidebar(group, signed_in)],
       ),
     ],
   )
@@ -122,7 +123,7 @@ fn icon_button(href: String, glyph: String) -> Element(msg) {
 
 // --- sidebar ---------------------------------------------------------------
 
-fn sidebar(group: GroupDetail) -> Element(msg) {
+fn sidebar(group: GroupDetail, signed_in: Bool) -> Element(msg) {
   html.div([], [
     identity(group),
     action(group_path(group) <> "/schedule", "uil-calender", "Event Schedule", [
@@ -133,7 +134,7 @@ fn sidebar(group: GroupDetail) -> Element(msg) {
       "bg-[#272928] text-white",
     ]),
     about(group.bio),
-    participate(),
+    participate(signed_in),
     filter_panel.view(),
   ])
 }
@@ -185,9 +186,17 @@ fn action(
   )
 }
 
-/// Joining is a write path and is not built, so this points at sign-in exactly
-/// as upstream does for a signed-out visitor.
-fn participate() -> Element(msg) {
+/// The sign-in prompt, for signed-out visitors only. Upstream renders it as
+/// `{!currProfile && <SignInPanel/>}`; without that guard it was telling
+/// people who were already signed in to sign in.
+fn participate(signed_in: Bool) -> Element(msg) {
+  case signed_in {
+    True -> element.none()
+    False -> sign_in_panel()
+  }
+}
+
+fn sign_in_panel() -> Element(msg) {
   html.div(
     [
       attribute.class(
@@ -202,7 +211,7 @@ fn participate() -> Element(msg) {
         [
           attribute.href("/signin"),
           attribute.class(
-            "w-full text-center rounded-lg py-3 font-semibold bg-[#7ff7ce]",
+            "w-full text-center rounded-lg py-3 font-semibold bg-special text-special-foreground",
           ),
         ],
         [element.text("Sign In")],

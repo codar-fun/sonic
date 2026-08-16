@@ -10,11 +10,13 @@
 import gleam/dynamic/decode.{type Decoder}
 import gleam/option.{type Option, None}
 import sonic/api/types.{
-  type Badge, type BadgeClass, type Discover, type Event, type EventRole,
+  type Badge, type BadgeClass, type Comment, type Discover, type Event,
+  type EventRole,
   type Group, type GroupDetail, type Membership, type Meta, type Page,
   type Participant, type Place, type PopupCity, type Profile, type SearchResults, type Track,
   type TrackDetail, type UserProfile, type Venue, type VenueDetail, Badge,
-  BadgeClass, Discover, Event, EventRole, Group, GroupDetail, Membership, Meta,
+  BadgeClass, Comment, Discover, Event, EventRole, Group, GroupDetail,
+  Membership, Meta,
   Page, Participant, Place, PopupCity, Profile, SearchResults, Track, TrackDetail,
   UserProfile, Venue, VenueDetail,
 }
@@ -158,6 +160,14 @@ pub fn event_role() -> Decoder(EventRole) {
 pub fn recurring_interval() -> Decoder(String) {
   use interval <- opt_or("interval", "", decode.string)
   decode.success(interval)
+}
+
+pub fn comment() -> Decoder(Comment) {
+  use id <- decode.field("id", decode.string)
+  use content <- opt("content", decode.string)
+  use created_at <- opt("created_at", decode.string)
+  use user <- opt("user", profile())
+  decode.success(Comment(id:, content:, created_at:, user:))
 }
 
 pub fn participant() -> Decoder(Participant) {

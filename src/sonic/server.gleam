@@ -148,6 +148,14 @@ pub fn handle(req: Request) -> Promise(Response) {
           use repeats <- promise.await(recurrence_of(found))
           // Only fetched for the tab that shows them; the content tab would
           // pay for a request it never renders.
+          use talk <- promise.await(
+            promise.map(event.comments(id: id), fn(result) {
+              case result {
+                Ok(page) -> page.data
+                Error(_) -> []
+              }
+            }),
+          )
           use people <- promise.map(case tab {
             "participants" ->
               promise.map(event.participants(id: id), fn(result) {
@@ -161,7 +169,7 @@ pub fn handle(req: Request) -> Promise(Response) {
           Page(
             200,
             document_meta(
-              event_detail.view(found, repeats, signed_in, tab, people),
+              event_detail.view(found, repeats, signed_in, tab, people, talk),
               signed_in,
               event_meta(found),
             ),
@@ -176,13 +184,20 @@ pub fn handle(req: Request) -> Promise(Response) {
         }
       }
     }
+    router.EventComment(id), Post -> post_comment(id, req)
+    router.EventComment(id), Get ->
+      promise.resolve(Redirect("/event/detail/" <> id, None))
+
     router.Communities, _ -> render(communities_page(req.token), signed_in)
     router.Search, _ -> render(search_page(req), signed_in)
     router.BadgeDetail(id), _ -> render(badge_page(id, req.token), signed_in)
     router.BadgeClassDetail(id), _ ->
       render(badge_class_page(id, req.token), signed_in)
     router.GroupHome(handle), _ ->
-      render(group_home_page(handle, req.token, tab_of(req)), signed_in)
+      render(
+        group_home_page(handle, req.token, tab_of(req), signed_in),
+        signed_in,
+      )
     router.Schedule(handle), _ ->
       render(
         schedule_page(
@@ -408,6 +423,7 @@ fn group_home_page(
   handle: String,
   token: Option(String),
   tab: String,
+  signed_in: Bool,
 ) -> Promise(Result(Element(msg), ApiError)) {
   let group = group.detail(handle: handle, auth: token)
   let events =
@@ -423,7 +439,7 @@ fn group_home_page(
   use events_result <- promise.map(events)
 
   case group_result, events_result {
-    Ok(found), Ok(page) -> Ok(group_home.view(found, page, tab))
+    Ok(found), Ok(page) -> Ok(group_home.view(found, page, tab, signed_in))
     Error(err), _ -> Error(err)
     _, Error(err) -> Error(err)
   }
@@ -707,6 +723,26 @@ fn finish_wallet_signin(req: Request) -> Promise(Response) {
       }
     }
     _, _ -> promise.resolve(Redirect("/signin", None))
+  }
+}
+
+/// Leaving a comment. Back to the event either way — the page re-fetches the
+/// list, so a successful comment is visible on arrival.
+fn post_comment(id: String, req: Request) -> Promise(Response) {
+  let back = "/event/detail/" <> id
+  case req.token, request.field(req, "content") {
+    Some(token), Some(content) if content != "" -> {
+      use _ <- promise.map(event.post_comment(
+        id: id,
+        content: content,
+        auth: Some(token),
+      ))
+      Redirect(back, None)
+    }
+    // No session: the form is not shown to signed-out visitors, so this is
+    // someone posting directly. Send them to sign in rather than failing.
+    None, _ -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    _, _ -> promise.resolve(Redirect(back, None))
   }
 }
 

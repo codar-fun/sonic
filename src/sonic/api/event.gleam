@@ -9,7 +9,10 @@ import gleam/javascript/promise.{type Promise}
 import gleam/option.{type Option, None, Some}
 import sonic/api/client.{type ApiResult, type Auth}
 import sonic/api/decoders
-import sonic/api/types.{type Discover, type Event, type Page, type Participant}
+import gleam/json
+import sonic/api/types.{
+  type Comment, type Discover, type Event, type Page, type Participant,
+}
 
 /// `GET /events` — a page of public events, newest page first.
 pub fn list(
@@ -81,6 +84,51 @@ pub fn participants(id id: String) -> Promise(ApiResult(Page(Participant))) {
     query: [],
     auth: None,
     expect: decoders.page(of: decoders.participant()),
+  )
+}
+
+/// `GET /comments?comment_type=comment&item_type=Event&item_id=…`
+///
+/// `comment_type` is not optional even though it looks it: soon's index
+/// filters on it unconditionally, so omitting it matches `comment_type IS
+/// NULL` and returns an empty list for every event — which reads exactly like
+/// "no comments yet".
+pub fn comments(id id: String) -> Promise(ApiResult(Page(Comment))) {
+  client.get(
+    path: "/comments",
+    query: [
+      #("comment_type", Some("comment")),
+      #("item_type", Some("Event")),
+      #("item_id", Some(id)),
+    ],
+    auth: None,
+    expect: decoders.page(of: decoders.comment()),
+  )
+}
+
+/// `POST /comments` — leave a comment on an event.
+pub fn post_comment(
+  id id: String,
+  content content: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(Comment)) {
+  client.post(
+    path: "/comments",
+    query: [],
+    auth: auth,
+    body: json.object([
+      #(
+        "comment",
+        json.object([
+          #("comment_type", json.string("comment")),
+          #("item_type", json.string("Event")),
+          #("item_id", json.string(id)),
+          #("content", json.string(content)),
+          #("content_type", json.string("text")),
+        ]),
+      ),
+    ]),
+    expect: decoders.comment(),
   )
 }
 
