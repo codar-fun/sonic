@@ -14,7 +14,7 @@ import sonic/api/client.{type ApiResult, type Auth}
 import sonic/api/decoders
 import sonic/api/types.{
   type Event, type GroupDetail, type Membership, type Page, type TrackDetail,
-  Page,
+  type VenueDetail, Page,
 }
 
 /// `GET /groups/:handle` — one group's full record.
@@ -108,6 +108,91 @@ pub fn create(
     auth: auth,
     body: json.object([#("group", json.object([#("name", json.string(name))]))]),
     expect: decoders.group_detail(),
+  )
+}
+
+/// `PATCH /groups/:id` — group settings.
+///
+/// Only the fields the settings form owns. The full record carries tags,
+/// banner, permissions and timezone, each with its own page upstream, and a
+/// PATCH that sent them all would write over whatever this form did not ask.
+pub fn update(
+  id id: String,
+  nickname nickname: String,
+  bio bio: String,
+  location location: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(GroupDetail)) {
+  client.patch(
+    path: "/groups/" <> id,
+    query: [],
+    auth: auth,
+    body: json.object([
+      #(
+        "group",
+        json.object([
+          #("nickname", json.string(nickname)),
+          #("bio", json.string(bio)),
+          #("location", json.string(location)),
+        ]),
+      ),
+    ]),
+    expect: decoders.group_detail(),
+  )
+}
+
+/// `POST /venues` — add a venue to a group.
+pub fn create_venue(
+  group_id group_id: String,
+  name name: String,
+  about about: String,
+  capacity capacity: Option(Int),
+  auth auth: Auth,
+) -> Promise(ApiResult(VenueDetail)) {
+  client.post(
+    path: "/venues",
+    query: [],
+    auth: auth,
+    body: json.object([
+      #(
+        "venue",
+        json.object([
+          #("group_id", json.string(group_id)),
+          #("name", json.string(name)),
+          #("about", json.string(about)),
+          #("capacity", case capacity {
+            Some(n) -> json.int(n)
+            None -> json.null()
+          }),
+        ]),
+      ),
+    ]),
+    expect: decoders.venue_detail(),
+  )
+}
+
+/// `POST /tracks` — add a programme to a group.
+pub fn create_track(
+  group_id group_id: String,
+  title title: String,
+  description description: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(TrackDetail)) {
+  client.post(
+    path: "/tracks",
+    query: [],
+    auth: auth,
+    body: json.object([
+      #(
+        "track",
+        json.object([
+          #("group_id", json.string(group_id)),
+          #("title", json.string(title)),
+          #("description", json.string(description)),
+        ]),
+      ),
+    ]),
+    expect: decoders.track_detail(),
   )
 }
 

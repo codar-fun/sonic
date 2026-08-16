@@ -36,6 +36,7 @@ import sonic/view/page/event_detail
 import sonic/view/page/event_list
 import sonic/view/page/event_share
 import sonic/view/page/group_create
+import sonic/view/page/group_forms
 import sonic/view/page/group_home
 import sonic/view/page/group_people
 import sonic/view/page/popup_cities
@@ -221,6 +222,12 @@ pub fn handle(req: Request) -> Promise(Response) {
     // The home page has linked here since it was built; the route did not
     // exist, so that link was a 404 on the front page.
     router.PopupCities, _ -> render(popup_cities_page(ctx.lang), ctx)
+    router.GroupSetting(handle), Get -> group_form(handle, req, "setting", None)
+    router.GroupSetting(handle), Post -> save_group_setting(handle, req)
+    router.VenueCreate(handle), Get -> group_form(handle, req, "venue", None)
+    router.VenueCreate(handle), Post -> save_venue(handle, req)
+    router.TrackCreate(handle), Get -> group_form(handle, req, "track", None)
+    router.TrackCreate(handle), Post -> save_track(handle, req)
     router.EventCreate(handle), Get -> event_create_page(handle, req, None)
     router.EventCreate(handle), Post -> create_event(handle, req)
     router.Register, Get -> register_page(req, "", None)
@@ -877,6 +884,17 @@ fn status_for(err: ApiError) -> Int {
   explain(err).0
 }
 
+/// A successful write does not render anything — it says where to go next.
+fn to_destination(
+  result: Result(a, ApiError),
+  destination: String,
+) -> Result(String, ApiError) {
+  case result {
+    Ok(_) -> Ok(destination)
+    Error(err) -> Error(err)
+  }
+}
+
 fn map_ok(
   result: Result(a, ApiError),
   with view: fn(a) -> Element(msg),
@@ -996,6 +1014,135 @@ fn post_comment(id: String, req: Request) -> Promise(Response) {
     None, _ -> promise.resolve(Redirect("/signin?return=" <> back, None))
     _, _ -> promise.resolve(Redirect(back, None))
   }
+}
+
+/// The group's three write forms. All need a session and all resolve the
+/// group first, so the shape is shared and only the fields differ.
+fn group_form(
+  handle: String,
+  req: Request,
+  which: String,
+  problem: Option(String),
+) -> Promise(Response) {
+  let ctx = ctx_of(req)
+  let back = "/event/" <> handle <> "/" <> form_path(which)
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    Some(_) -> {
+      use found <- promise.await(group.detail(handle: handle, auth: req.token))
+      case found {
+        Error(err) -> {
+          let #(status, message) = explain(err)
+          page(status, error_page.view(status, message), ctx)
+        }
+        Ok(group) -> {
+          let #(title, submit, fields) = case which {
+            "venue" -> #(
+              "Add a Venue",
+              "Save",
+              group_forms.venue_fields(),
+            )
+            "track" -> #(
+              "Add a Program",
+              "Save",
+              group_forms.track_fields(),
+            )
+            _ -> #(
+              "Group Settings",
+              "Save",
+              group_forms.settings_fields(group),
+            )
+          }
+          page(
+            200,
+            group_forms.view(
+              group,
+              ctx.lang,
+              title,
+              back,
+              submit,
+              fields,
+              problem,
+            ),
+            ctx,
+          )
+        }
+      }
+    }
+  }
+}
+
+fn form_path(which: String) -> String {
+  case which {
+    "venue" -> "venues/create"
+    "track" -> "tracks/create"
+    _ -> "setting"
+  }
+}
+
+/// Each save resolves the group, calls one endpoint, and either goes to the
+/// page that now shows the result or comes back with what went wrong.
+fn with_group(
+  handle: String,
+  req: Request,
+  which: String,
+  run: fn(GroupDetail) -> Promise(Result(String, ApiError)),
+) -> Promise(Response) {
+  let back = "/event/" <> handle <> "/" <> form_path(which)
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    Some(_) -> {
+      use found <- promise.await(group.detail(handle: handle, auth: req.token))
+      case found {
+        Error(err) -> group_form(handle, req, which, Some(explain(err).1))
+        Ok(group) -> {
+          use result <- promise.await(run(group))
+          case result {
+            Ok(destination) -> promise.resolve(Redirect(destination, None))
+            Error(err) -> group_form(handle, req, which, Some(explain(err).1))
+          }
+        }
+      }
+    }
+  }
+}
+
+fn save_group_setting(handle: String, req: Request) -> Promise(Response) {
+  use found <- with_group(handle, req, "setting")
+  let field = fn(name) { option.unwrap(request.field(req, name), "") }
+  use result <- promise.map(group.update(
+    id: found.id,
+    nickname: field("nickname"),
+    bio: field("bio"),
+    location: field("location"),
+    auth: req.token,
+  ))
+  result |> to_destination("/event/" <> handle)
+}
+
+fn save_venue(handle: String, req: Request) -> Promise(Response) {
+  use found <- with_group(handle, req, "venue")
+  let field = fn(name) { option.unwrap(request.field(req, name), "") }
+  use result <- promise.map(group.create_venue(
+    group_id: found.id,
+    name: field("name"),
+    about: field("about"),
+    capacity: group_forms.optional_int(field("capacity")),
+    auth: req.token,
+  ))
+  result |> to_destination("/event/" <> handle <> "/venues")
+}
+
+fn save_track(handle: String, req: Request) -> Promise(Response) {
+  use found <- with_group(handle, req, "track")
+  let field = fn(name) { option.unwrap(request.field(req, name), "") }
+  use result <- promise.map(group.create_track(
+    group_id: found.id,
+    title: field("title"),
+    description: field("description"),
+    auth: req.token,
+  ))
+  result |> to_destination("/event/" <> handle <> "/tracks")
 }
 
 /// Creating an event in a group. Needs a session; the API decides whether

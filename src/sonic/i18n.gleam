@@ -143,6 +143,13 @@ const zh = [
   #("Timezone", "时区"),
   #("Online Meeting Link", "线上会议链接"),
   #("Description", "描述"),
+  #("Group Settings", "群组设置"),
+  #("Group Name", "群组名称"),
+  #("Location", "地点"),
+  #("Add a Venue", "添加场地"),
+  #("Venue Name", "场地名称"),
+  #("Add a Program", "添加分轨"),
+  #("Program Name", "分轨名称"),
   #(
     "Contain the English-language letters a-z and the digits 0-9",
     "包含英文字母 a-z 和数字 0-9",

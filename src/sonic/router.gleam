@@ -18,6 +18,9 @@ pub type Route {
   PopupCities
   Register
   EventCreate(handle: String)
+  GroupSetting(handle: String)
+  VenueCreate(handle: String)
+  TrackCreate(handle: String)
   BadgeDetail(id: String)
   BadgeClassDetail(id: String)
   Schedule(handle: String)
@@ -69,6 +72,9 @@ pub fn parse(path: String) -> Route {
     ["event", handle, "venues"] -> Venues(handle)
     ["event", handle, "tracks"] -> Tracks(handle)
     ["event", handle, "create"] -> EventCreate(handle)
+    ["event", handle, "setting"] -> GroupSetting(handle)
+    ["event", handle, "venues", "create"] -> VenueCreate(handle)
+    ["event", handle, "tracks", "create"] -> TrackCreate(handle)
     ["profile", handle] -> Profile(handle)
     ["profile", handle, "edit"] -> ProfileEdit(handle)
     ["event", handle, "schedule", "list"] -> Schedule(handle)
@@ -108,6 +114,9 @@ pub fn href(route: Route) -> String {
     PopupCities -> "/popup-city"
     Register -> "/register"
     EventCreate(handle) -> "/event/" <> handle <> "/create"
+    GroupSetting(handle) -> "/event/" <> handle <> "/setting"
+    VenueCreate(handle) -> "/event/" <> handle <> "/venues/create"
+    TrackCreate(handle) -> "/event/" <> handle <> "/tracks/create"
     BadgeDetail(id) -> "/badge/" <> id
     BadgeClassDetail(id) -> "/badge-class/" <> id
     Schedule(handle) -> "/event/" <> handle <> "/schedule"
