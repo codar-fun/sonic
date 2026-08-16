@@ -37,6 +37,7 @@ import sonic/view/page/event_share
 import sonic/view/page/group_create
 import sonic/view/page/group_home
 import sonic/view/page/group_people
+import sonic/view/page/popup_cities
 import sonic/view/page/profile
 import sonic/view/page/profile_edit
 import sonic/view/page/schedule
@@ -215,6 +216,9 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.EventComment(id), Get ->
       promise.resolve(Redirect("/event/detail/" <> id, None))
 
+    // The home page has linked here since it was built; the route did not
+    // exist, so that link was a 404 on the front page.
+    router.PopupCities, _ -> render(popup_cities_page(ctx.lang), ctx)
     router.GroupCreate, Get -> group_create_page(req, "", None)
     router.GroupCreate, Post -> create_group(req)
 
@@ -498,6 +502,14 @@ fn group_home_page(
     Error(err), _ -> Error(err)
     _, Error(err) -> Error(err)
   }
+}
+
+fn popup_cities_page(
+  lang: Lang,
+) -> Promise(Result(Element(msg), ApiError)) {
+  use result <- promise.map(event.discover())
+  result
+  |> map_ok(fn(data) { popup_cities.view(data.popup_cities, lang) })
 }
 
 fn communities_page(

@@ -19,6 +19,7 @@ import sonic/api/types.{type Discover, type PopupCity}
 import sonic/view/goto_tiles
 import sonic/i18n.{type Lang}
 import sonic/view/event_time
+import sonic/view/popup_card
 import sonic/view/footer
 import sonic/view/image
 
@@ -188,7 +189,7 @@ fn popup_cities(cities: List(PopupCity), lang: Lang) -> Element(msg) {
               "grid md:grid-cols-4 sm:grid-cols-3 grid-cols-2 gap-2",
             ),
           ],
-          list.map(cities, city_card),
+          list.map(cities, popup_card.view),
         ),
       ])
   }
@@ -215,73 +216,12 @@ fn filters(lang: Lang) -> Element(msg) {
   )
 }
 
-fn city_card(city: PopupCity) -> Element(msg) {
-  html.a(
-    [
-      attribute.href("/event/" <> handle(city)),
-      attribute.class(
-        "rounded shadow p-3 duration-200 hover:translate-y-[-6px]",
-      ),
-    ],
-    [
-      html.div([attribute.class("rounded aspect-[3/2] mb-3 overflow-hidden")], [
-        cover(first_present([city.image_url, city.banner_image_url])),
-      ]),
-      // Dates first, then the name: upstream leads with when, not what.
-      html.div([attribute.class("webkit-box-clamp-1 sm:text-sm text-xs")], [
-        element.text(option_text(dates(city))),
-      ]),
-      html.div(
-        [
-          attribute.class(
-            "webkit-box-clamp-2 text-lg font-semibold leading-5 h-10 mb-4",
-          ),
-        ],
-        [element.text(display_name(city.nickname, city.name, city.id))],
-      ),
-      html.div([attribute.class("flex items-end flex-row justify-between")], [
-        html.div([attribute.class("flex-1")], [
-          case city.location {
-            Some(place) if place != "" ->
-              html.div([attribute.class("flex-row-item-center text-xs")], [
-                html.i([attribute.class("uil-location-point mr-0.5")], []),
-                html.div([attribute.class("webkit-box-clamp-1 break-all")], [
-                  element.text(place),
-                ]),
-              ])
-            _ -> element.none()
-          },
-          html.div([attribute.class("flex-row-item-center text-xs")], [
-            image.avatar_or_default(
-              city.image_url,
-              city.id,
-              28,
-              "w-[14px] h-[14px] rounded-full mr-0.5",
-            ),
-            html.div([attribute.class("webkit-box-clamp-1")], [
-              element.text(
-                "by " <> display_name(city.nickname, city.name, city.id),
-              ),
-            ]),
-          ]),
-        ]),
-      ]),
-    ],
-  )
-}
 
 
 fn is_featured(city: PopupCity) -> Bool {
   list.any(city.group_tags, fn(tag) { tag == "featured" || tag == ":featured" })
 }
 
-fn cover(url: Option(String)) -> Element(msg) {
-  case url {
-    Some(src) if src != "" ->
-      image.card_img(src, "", "object-cover w-full h-full rounded")
-    _ -> html.div([attribute.class("w-full h-full bg-gray-100 rounded")], [])
-  }
-}
 
 fn meta_line(value: Option(String)) -> Element(msg) {
   case value {
@@ -290,6 +230,14 @@ fn meta_line(value: Option(String)) -> Element(msg) {
         element.text(text),
       ])
     _ -> element.none()
+  }
+}
+
+fn cover(url: Option(String)) -> Element(msg) {
+  case url {
+    Some(src) if src != "" ->
+      image.card_img(src, "", "object-cover w-full h-full rounded")
+    _ -> html.div([attribute.class("w-full h-full bg-gray-100 rounded")], [])
   }
 }
 
