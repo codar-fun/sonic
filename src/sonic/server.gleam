@@ -218,7 +218,7 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.GroupCreate, Get -> group_create_page(req, "", None)
     router.GroupCreate, Post -> create_group(req)
 
-    router.Communities, _ -> render(communities_page(req.token), ctx)
+    router.Communities, _ -> render(communities_page(req.token, ctx.lang), ctx)
     router.Search, _ -> render(search_page(req), ctx)
     // Upstream's URL for "the events I am going to". There is no separate page
     // for it here — the profile already has that list — so this resolves the
@@ -325,7 +325,11 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.Signin, Get ->
       auth_page(
         200,
-        signin.ask_email(None, safe_return(request.query(req, "return"))),
+        signin.ask_email(
+          None,
+          safe_return(request.query(req, "return")),
+          ctx.lang,
+        ),
         ctx,
       )
     router.Signin, Post -> start_signin(req)
@@ -363,13 +367,13 @@ fn start_signin(req: Request) -> Promise(Response) {
   let ctx = ctx_of(req)
   let back = safe_return(request.field(req, "return"))
   case request.field(req, "email") {
-    None -> auth_page(400, signin.ask_email(Some("Enter an email address."), back), ctx)
+    None -> auth_page(400, signin.ask_email(Some("Enter an email address."), back, ctx.lang), ctx)
     Some(email) -> {
       use result <- promise.await(auth.request_email_code(email))
       case result {
-        Ok(_) -> auth_page(200, signin.ask_code(email, None, back), ctx)
+        Ok(_) -> auth_page(200, signin.ask_code(email, None, back, ctx.lang), ctx)
         Error(err) ->
-          auth_page(status_for(err), signin.ask_email(Some(explain(err).1), back), ctx)
+          auth_page(status_for(err), signin.ask_email(Some(explain(err).1), back, ctx.lang), ctx)
       }
     }
   }
@@ -393,6 +397,7 @@ fn finish_signin(req: Request) -> Promise(Response) {
               email,
               Some("That code didn't work."),
               safe_return(request.field(req, "return")),
+              ctx.lang,
             ),
             ctx,
           )
@@ -403,6 +408,7 @@ fn finish_signin(req: Request) -> Promise(Response) {
               email,
               Some(explain(err).1),
               safe_return(request.field(req, "return")),
+              ctx.lang,
             ),
             ctx,
           )
@@ -415,6 +421,7 @@ fn finish_signin(req: Request) -> Promise(Response) {
           email,
           Some("Enter the code."),
           safe_return(request.field(req, "return")),
+          ctx.lang,
         ),
         ctx,
       )
@@ -495,9 +502,10 @@ fn group_home_page(
 
 fn communities_page(
   token: Option(String),
+  lang: Lang,
 ) -> Promise(Result(Element(msg), ApiError)) {
   use result <- promise.map(group.all_directory(auth: token))
-  result |> map_ok(communities.view)
+  result |> map_ok(fn(page) { communities.view(page, lang) })
 }
 
 fn badge_page(
@@ -931,6 +939,7 @@ fn finish_wallet_signin(req: Request) -> Promise(Response) {
             signin.ask_email(
               Some("That wallet signature was not accepted."),
               safe_return(request.field(req, "return")),
+              ctx.lang,
             ),
             ctx,
           )
@@ -940,6 +949,7 @@ fn finish_wallet_signin(req: Request) -> Promise(Response) {
             signin.ask_email(
               Some(explain(err).1),
               safe_return(request.field(req, "return")),
+              ctx.lang,
             ),
             ctx,
           )

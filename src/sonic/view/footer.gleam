@@ -11,8 +11,9 @@
 import lustre/attribute.{attribute}
 import lustre/element.{type Element}
 import lustre/element/html
+import sonic/i18n.{type Lang}
 
-pub fn view() -> Element(msg) {
+pub fn view(lang: Lang) -> Element(msg) {
   html.div(
     [
       attribute.class(
@@ -20,11 +21,11 @@ pub fn view() -> Element(msg) {
       ),
       attribute.styles([#("border-top", "1px solid #f1f1f1")]),
     ],
-    [links(), feedback()],
+    [links(lang), feedback(lang)],
   )
 }
 
-fn links() -> Element(msg) {
+fn links(lang: Lang) -> Element(msg) {
   html.div([attribute.class("flex flex-col justify-center sm:justify-start")], [
     html.div(
       [attribute.class("flex-row-item-center justify-center sm:justify-start")],
@@ -37,9 +38,9 @@ fn links() -> Element(msg) {
           attribute.width(39),
           attribute.height(27),
         ]),
-        link("https://www.sociallayer.im/", "About us"),
-        link("mailto:hi@sola.day", "Contact us"),
-        link(issues_url, "Feedback"),
+        link("https://www.sociallayer.im/", i18n.t(lang, "About us")),
+        link("mailto:hi@sola.day", i18n.t(lang, "Contact us")),
+        link(issues_url, i18n.t(lang, "Feedback")),
       ],
     ),
     // Second row: the OAuth developer pages. Those routes are not built here
@@ -49,19 +50,19 @@ fn links() -> Element(msg) {
     html.div(
       [attribute.class("flex-row-item-center justify-center sm:justify-start mt-2")],
       [
-        html.a([attribute.href("/oauth/apps")], [element.text("Developer")]),
-        link("/oauth/grants", "Authorized Applications"),
+        html.a([attribute.href("/oauth/apps")], [element.text(i18n.t(lang, "Developer"))]),
+        link("/oauth/grants", i18n.t(lang, "Authorized Applications")),
       ],
     ),
   ])
 }
 
-fn feedback() -> Element(msg) {
+fn feedback(lang: Lang) -> Element(msg) {
   html.div(
     [attribute.class("flex flex-col sm:mt-0 mt-3 items-center sm:items-start")],
     [
       html.div([attribute.class("mb-2 text-sm")], [
-        element.text("We value your feedback!"),
+        element.text(i18n.t(lang, "We value your feedback!")),
       ]),
       html.div([attribute.class("flex-row-item-center justify-start")], [
         icon_link("/remember", "Remember", "uil-award"),

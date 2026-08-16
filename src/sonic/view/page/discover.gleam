@@ -30,7 +30,7 @@ pub fn view(data: Discover, lang: Lang) -> Element(msg) {
     create_group_panel(lang),
     popup_cities(data.popup_cities, lang),
     goto_tiles.view(),
-    footer.view(),
+    footer.view(lang),
   ])
 }
 

@@ -13,15 +13,20 @@ import gleam/option.{type Option, None, Some}
 import lustre/attribute.{attribute}
 import lustre/element.{type Element}
 import lustre/element/html
+import sonic/i18n.{type Lang}
 
 /// Step one: which address should the code go to.
 /// `return` is where to go once signed in. Carried as a hidden field through
 /// both steps rather than held server-side: the two requests are independent,
 /// and parking half a sign-in on the server to remember a URL is a worse trade
 /// than a form field.
-pub fn ask_email(error: Option(String), return: Option(String)) -> Element(msg) {
+pub fn ask_email(
+  error: Option(String),
+  return: Option(String),
+  lang: Lang,
+) -> Element(msg) {
   shell([
-    heading("Sign In"),
+    heading(i18n.t(lang, "Sign In")),
     html.form([attribute.method("post"), attribute.action("/signin")], [
       return_field(return),
       html.div([attribute.class("mb-3")], [
@@ -32,7 +37,7 @@ pub fn ask_email(error: Option(String), return: Option(String)) -> Element(msg) 
           placeholder: "Email",
           value: "",
           autocomplete: "email",
-          action: "Go",
+          action: i18n.t(lang, "Go"),
         ),
       ]),
     ]),
@@ -46,8 +51,8 @@ pub fn ask_email(error: Option(String), return: Option(String)) -> Element(msg) 
       ],
       [],
     ),
-    divider(),
-    alternatives(),
+    divider(lang),
+    alternatives(lang),
   ])
 }
 
@@ -57,9 +62,10 @@ pub fn ask_code(
   email: String,
   error: Option(String),
   return: Option(String),
+  lang: Lang,
 ) -> Element(msg) {
   shell([
-    heading("Check your email"),
+    heading(i18n.t(lang, "Check your email")),
     html.div([attribute.class("text-sm mb-6 text-gray-400")], [
       element.text("We sent a code to " <> email <> "."),
     ]),
@@ -78,14 +84,14 @@ pub fn ask_code(
           placeholder: "Code",
           value: "",
           autocomplete: "one-time-code",
-          action: "Go",
+          action: i18n.t(lang, "Go"),
         ),
       ]),
     ]),
     problem(error),
     html.div([attribute.class("text-sm")], [
       html.a([attribute.href("/signin"), attribute.class("text-[#6cd7b2]")], [
-        element.text("Use a different email"),
+        element.text(i18n.t(lang, "Use a different email")),
       ]),
     ]),
   ])
@@ -160,14 +166,14 @@ fn field(
 }
 
 /// The "or" rule, drawn with pseudo-elements exactly as upstream does.
-fn divider() -> Element(msg) {
+fn divider(lang: Lang) -> Element(msg) {
   html.div(
     [
       attribute.class(
         "flex flex-row items-center mb-3 after:content-[''] after:block after:flex-1 after:bg-secondary after:h-[1px] before:block before:flex-1 before:bg-secondary before:h-[1px]",
       ),
     ],
-    [html.div([attribute.class("mx-2 text-sm")], [element.text("or")])],
+    [html.div([attribute.class("mx-2 text-sm")], [element.text(i18n.t(lang, "or"))])],
   )
 }
 
@@ -175,13 +181,13 @@ fn divider() -> Element(msg) {
 /// buttons are rendered as upstream draws them — including its icons — rather
 /// than greyed out: a disabled-looking control changes the page's appearance,
 /// and matching it is the requirement. Pressing one does nothing yet.
-fn alternatives() -> Element(msg) {
+fn alternatives(lang: Lang) -> Element(msg) {
   html.div([attribute.class("flex flex-col sm:grid sm:gap-2 sm:grid-cols-2")], [
-    alternative(google_mark(), "Google Auth"),
+    alternative(google_mark(), i18n.t(lang, "Google Auth")),
     alternative_with_id(
       "wallet-signin",
       html.i([attribute.class("uil-wallet text-xl")], []),
-      "Ethereum Wallet",
+      i18n.t(lang, "Ethereum Wallet"),
     ),
   ])
 }
