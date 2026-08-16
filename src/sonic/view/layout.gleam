@@ -348,7 +348,7 @@ pub fn menu_label_in(signed_in: Bool, lang: Lang) -> String {
 
 pub fn menu_items(signed_in: Bool) -> List(#(String, String)) {
   case signed_in {
-    True -> [#("My Events", "/events"), #("Sign Out", "/signout")]
+    True -> [#("My Events", "/my-events/attended"), #("Sign Out", "/signout")]
     False -> [#("Sign In", "/signin")]
   }
 }

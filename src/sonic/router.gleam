@@ -9,7 +9,6 @@ import gleam/string
 
 pub type Route {
   Home
-  EventList
   EventDetail(id: String)
   EventShare(id: String)
   EventComment(id: String)
@@ -23,11 +22,11 @@ pub type Route {
   ScheduleVenue(handle: String)
   ScheduleWeek(handle: String)
   Venues(handle: String)
-  Members(handle: String)
   Tracks(handle: String)
   Profile(handle: String)
   ProfileEdit(handle: String)
   Search
+  MyEvents
   SetLanguage
   Signin
   SigninWallet
@@ -51,7 +50,6 @@ pub fn parse(path: String) -> Route {
   case segments {
     [] -> Home
     ["discover"] -> Home
-    ["events"] -> EventList
     ["event", "detail", id] -> EventDetail(id)
     ["event", "detail", id, "comment"] -> EventComment(id)
     ["event", "share", id] -> EventShare(id)
@@ -66,7 +64,6 @@ pub fn parse(path: String) -> Route {
     ["event", handle] -> GroupHome(handle)
     ["event", handle, "schedule"] -> Schedule(handle)
     ["event", handle, "venues"] -> Venues(handle)
-    ["event", handle, "members"] -> Members(handle)
     ["event", handle, "tracks"] -> Tracks(handle)
     ["profile", handle] -> Profile(handle)
     ["profile", handle, "edit"] -> ProfileEdit(handle)
@@ -78,6 +75,7 @@ pub fn parse(path: String) -> Route {
     ["communities"] -> Communities
     ["group", "create"] -> GroupCreate
     ["search"] -> Search
+    ["my-events", _] -> MyEvents
     ["lang"] -> SetLanguage
     ["badge", id] -> BadgeDetail(id)
     ["badge-class", id] -> BadgeClassDetail(id)
@@ -95,7 +93,6 @@ pub fn parse(path: String) -> Route {
 pub fn href(route: Route) -> String {
   case route {
     Home -> "/"
-    EventList -> "/events"
     EventDetail(id) -> "/event/detail/" <> id
     EventShare(id) -> "/event/share/" <> id
     EventComment(id) -> "/event/detail/" <> id <> "/comment"
@@ -109,11 +106,11 @@ pub fn href(route: Route) -> String {
     ScheduleVenue(handle) -> "/event/" <> handle <> "/schedule/venue"
     ScheduleWeek(handle) -> "/event/" <> handle <> "/schedule/week"
     Venues(handle) -> "/event/" <> handle <> "/venues"
-    Members(handle) -> "/event/" <> handle <> "/members"
     Tracks(handle) -> "/event/" <> handle <> "/tracks"
     Profile(handle) -> "/profile/" <> handle
     ProfileEdit(handle) -> "/profile/" <> handle <> "/edit"
     Search -> "/search"
+    MyEvents -> "/my-events/attended"
     SetLanguage -> "/lang"
     Signin -> "/signin"
     SigninVerify -> "/signin/verify"

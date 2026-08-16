@@ -150,7 +150,6 @@ pub fn handle(req: Request) -> Promise(Response) {
 
   case router.parse(req.path), req.method {
     router.Home, _ -> render(home_page(ctx.lang), ctx)
-    router.EventList, _ -> render(event_list_page(req.token), ctx)
     router.EventShare(id), _ -> {
       use result <- promise.map(event.detail(id: id, auth: req.token))
       case result {
@@ -221,6 +220,10 @@ pub fn handle(req: Request) -> Promise(Response) {
 
     router.Communities, _ -> render(communities_page(req.token), ctx)
     router.Search, _ -> render(search_page(req), ctx)
+    // Upstream's URL for "the events I am going to". There is no separate page
+    // for it here — the profile already has that list — so this resolves the
+    // signed-in handle and sends them to their own.
+    router.MyEvents, _ -> my_events(req)
     // Writes the choice and returns where it was made, so switching language
     // keeps you on the page you were reading.
     router.SetLanguage, _ ->
@@ -292,17 +295,6 @@ pub fn handle(req: Request) -> Promise(Response) {
       render(
         group_scoped(handle, req.token, fn(found, _token) {
           promise.resolve(Ok(venues.view(found, ctx.lang)))
-        }),
-        ctx,
-      )
-    router.Members(handle), _ ->
-      render(
-        group_scoped(handle, req.token, fn(found, token) {
-          use result <- promise.map(group.memberships(
-            group_id: found.id,
-            auth: token,
-          ))
-          result |> map_ok(fn(page) { group_people.members(found, page) })
         }),
         ctx,
       )
@@ -1018,6 +1010,26 @@ fn create_group(req: Request) -> Promise(Response) {
             Some("That group name is not available."),
           )
         Error(err) -> group_create_page(req, name, Some(explain(err).1))
+      }
+    }
+  }
+}
+
+fn my_events(req: Request) -> Promise(Response) {
+  case req.token {
+    None ->
+      promise.resolve(Redirect("/signin?return=/my-events/attended", None))
+    Some(_) -> {
+      use result <- promise.map(profile_api.me(auth: req.token))
+      case result {
+        Ok(user) ->
+          Redirect(
+            "/profile/"
+              <> option.unwrap(user.name, user.id)
+              <> "?list=attending",
+            None,
+          )
+        Error(_) -> Redirect("/signin?return=/my-events/attended", None)
       }
     }
   }

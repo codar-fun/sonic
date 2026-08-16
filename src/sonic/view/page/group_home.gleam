@@ -152,16 +152,11 @@ fn identity(group: GroupDetail) -> Element(msg) {
         element.text(group_name(group)),
       ]),
     ]),
-    html.a(
-      [
-        attribute.href(group_path(group) <> "/members"),
-        attribute.class("flex-row-item-center text-sm shrink-0"),
-      ],
-      [
-        element.text(int.to_string(group.memberships_count) <> " Members"),
-        html.i([attribute.class("uil-arrow-right ml-1")], []),
-      ],
-    ),
+    // The member count, not a link: upstream has no /members page and this
+    // one pointed at a route that only existed here.
+    html.div([attribute.class("flex-row-item-center text-sm shrink-0")], [
+      element.text(int.to_string(group.memberships_count) <> " Members"),
+    ]),
   ])
 }
 

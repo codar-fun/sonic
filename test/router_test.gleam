@@ -7,7 +7,7 @@ import gleeunit/should
 import sonic/api/group
 import sonic/server
 import sonic/router.{
-  EventDetail, EventList, EventShare, GroupHome, Home, NotFound,
+  EventDetail, EventShare, GroupHome, Home, NotFound,
 }
 
 /// seastar-app serves Discover at `/`, not an events list, so sonic does too.
@@ -17,10 +17,6 @@ pub fn root_is_the_home_page_test() {
   router.parse("/discover") |> should.equal(Home)
 }
 
-pub fn events_path_is_the_list_test() {
-  router.parse("/events") |> should.equal(EventList)
-}
-
 pub fn detail_paths_test() {
   router.parse("/event/detail/abc123") |> should.equal(EventDetail("abc123"))
   router.parse("/events/abc123") |> should.equal(EventDetail("abc123"))
@@ -28,18 +24,20 @@ pub fn detail_paths_test() {
 
 /// Trailing slashes are a routing accident, not a different page.
 pub fn trailing_slash_is_ignored_test() {
-  router.parse("/events/") |> should.equal(EventList)
   router.parse("/event/detail/abc123/") |> should.equal(EventDetail("abc123"))
 }
 
 /// A query string belongs to the handler, not to route matching.
 pub fn query_string_is_ignored_test() {
-  router.parse("/events?page=2") |> should.equal(EventList)
+  router.parse("/communities?page=2") |> should.equal(router.Communities)
   router.parse("/event/detail/x1?ref=share") |> should.equal(EventDetail("x1"))
 }
 
 pub fn unknown_paths_are_not_found_test() {
   router.parse("/nope") |> should.equal(NotFound)
+  // Neither exists upstream; both used to resolve here.
+  router.parse("/events") |> should.equal(NotFound)
+  router.parse("/event/4seas/members") |> should.equal(NotFound)
   router.parse("/event/detail") |> should.equal(NotFound)
   router.parse("/a/b/c/d") |> should.equal(NotFound)
 }
@@ -47,7 +45,7 @@ pub fn unknown_paths_are_not_found_test() {
 /// The point of keeping `parse` and `href` together: every route a view can
 /// link to must match back to itself.
 pub fn href_round_trips_test() {
-  [Home, EventList, EventDetail("abc123")]
+  [Home, router.Communities, EventDetail("abc123")]
   |> should_round_trip
 }
 
