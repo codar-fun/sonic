@@ -4,6 +4,7 @@
 //// handle is the `name` field. These take the handle, matching what the router
 //// hands over.
 
+import gleam/dynamic/decode
 import gleam/int
 import gleam/json
 import gleam/list
@@ -379,6 +380,40 @@ fn collect_directory(
       }
     }
   }
+}
+
+/// `PATCH /groups/:group/memberships/:id` — change someone's role.
+///
+/// Keyed by membership id, not user id. The list already carries it, so
+/// upstream's "find the membership first" step is a lookup this does not need.
+pub fn set_member_role(
+  group_id group_id: String,
+  membership_id membership_id: String,
+  role role: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(Nil)) {
+  client.patch(
+    path: "/groups/" <> group_id <> "/memberships/" <> membership_id,
+    query: [],
+    auth: auth,
+    body: json.object([
+      #("membership", json.object([#("role", json.string(role))])),
+    ]),
+    expect: decode.success(Nil),
+  )
+}
+
+/// `DELETE /groups/:group/memberships/:id` — remove someone from the group.
+pub fn remove_member(
+  group_id group_id: String,
+  membership_id membership_id: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(Nil)) {
+  client.delete(
+    path: "/groups/" <> group_id <> "/memberships/" <> membership_id,
+    query: [],
+    auth: auth,
+  )
 }
 
 /// `GET /groups/:id/memberships` — who belongs, and in what role.

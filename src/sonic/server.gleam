@@ -28,6 +28,7 @@ import sonic/api/types.{
 import sonic/router
 import sonic/view/layout
 import sonic/view/page/badge_detail
+import sonic/view/page/checkin
 import sonic/view/page/communities
 import sonic/view/page/discover
 import sonic/view/page/error_page
@@ -37,6 +38,7 @@ import sonic/view/page/event_list
 import sonic/view/page/event_share
 import sonic/view/page/group_create
 import sonic/view/page/group_forms
+import sonic/view/page/group_members
 import sonic/view/page/group_home
 import sonic/view/page/group_people
 import sonic/view/page/popup_cities
@@ -242,6 +244,10 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.PopupCities, _ -> render(popup_cities_page(ctx.lang), ctx)
     router.GroupSetting(handle), Get -> group_form(handle, req, "setting", None)
     router.GroupSetting(handle), Post -> save_group_setting(handle, req)
+    router.EventCheckin(id), Get -> checkin_page(id, req, None)
+    router.EventCheckin(id), Post -> do_checkin(id, req)
+    router.GroupMembers(handle), Get -> group_members_page(handle, req, None)
+    router.GroupMembers(handle), Post -> manage_member(handle, req)
     router.VenueEdit(handle, id), Get -> venue_edit_page(handle, id, req, None)
     router.VenueEdit(handle, id), Post -> save_venue_edit(handle, id, req)
     router.TrackEdit(handle, id), Get -> track_edit_page(handle, id, req, None)
@@ -1137,6 +1143,137 @@ fn group_form(
             ),
             ctx,
           )
+        }
+      }
+    }
+  }
+}
+
+/// Checking people in. Needs a session; the API decides whether this account
+/// runs that event.
+fn checkin_page(
+  id: String,
+  req: Request,
+  problem: Option(String),
+) -> Promise(Response) {
+  let ctx = ctx_of(req)
+  let back = "/event/checkin/" <> id
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    Some(_) -> {
+      use found <- promise.await(event.detail(id: id, auth: req.token))
+      use people <- promise.map(event.participants(id: id))
+      case found, people {
+        Ok(existing), Ok(page) ->
+          Page(
+            200,
+            document(
+              checkin.view(existing, page.data, ctx.lang, problem),
+              ctx,
+            ),
+          )
+        Error(err), _ | _, Error(err) -> {
+          let #(status, message) = explain(err)
+          Page(status, document(error_page.view(status, message), ctx))
+        }
+      }
+    }
+  }
+}
+
+fn do_checkin(id: String, req: Request) -> Promise(Response) {
+  let back = "/event/checkin/" <> id
+  case req.token, request.field(req, "user_id") {
+    None, _ -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    _, None -> promise.resolve(Redirect(back, None))
+    Some(_), Some(user_id) -> {
+      use result <- promise.await(event.check_in(
+        id: id,
+        user_id: user_id,
+        auth: req.token,
+      ))
+      case result {
+        Ok(_) -> promise.resolve(Redirect(back, None))
+        Error(err) -> checkin_page(id, req, Some(explain(err).1))
+      }
+    }
+  }
+}
+
+/// The group's member list, with the two things that can be done to a
+/// membership. Needs a session; the API decides whether this account may.
+fn group_members_page(
+  handle: String,
+  req: Request,
+  problem: Option(String),
+) -> Promise(Response) {
+  let ctx = ctx_of(req)
+  let back = "/group/" <> handle <> "/management/member"
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    Some(_) -> {
+      use found <- promise.await(group.detail(handle: handle, auth: req.token))
+      case found {
+        Error(err) -> {
+          let #(status, message) = explain(err)
+          page(status, error_page.view(status, message), ctx)
+        }
+        Ok(owner) -> {
+          use members <- promise.map(group.memberships(
+            group_id: owner.id,
+            auth: req.token,
+          ))
+          case members {
+            Ok(list) ->
+              Page(
+                200,
+                document(
+                  group_members.view(owner, list.data, ctx.lang, problem),
+                  ctx,
+                ),
+              )
+            Error(err) -> {
+              let #(status, message) = explain(err)
+              Page(status, document(error_page.view(status, message), ctx))
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+fn manage_member(handle: String, req: Request) -> Promise(Response) {
+  let back = "/group/" <> handle <> "/management/member"
+  case req.token, request.field(req, "membership") {
+    None, _ -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    _, None -> promise.resolve(Redirect(back, None))
+    Some(_), Some(membership) -> {
+      use found <- promise.await(group.detail(handle: handle, auth: req.token))
+      case found {
+        Error(err) -> group_members_page(handle, req, Some(explain(err).1))
+        Ok(owner) -> {
+          use result <- promise.await(case request.field(req, "action") {
+            Some("remove") ->
+              group.remove_member(
+                group_id: owner.id,
+                membership_id: membership,
+                auth: req.token,
+              )
+            Some(role) ->
+              group.set_member_role(
+                group_id: owner.id,
+                membership_id: membership,
+                role: role,
+                auth: req.token,
+              )
+            None -> promise.resolve(Ok(Nil))
+          })
+          case result {
+            Ok(_) -> promise.resolve(Redirect(back, None))
+            Error(err) ->
+              group_members_page(handle, req, Some(explain(err).1))
+          }
         }
       }
     }
