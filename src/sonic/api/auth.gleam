@@ -9,7 +9,8 @@ import gleam/dynamic/decode.{type Decoder}
 import gleam/javascript/promise.{type Promise}
 import gleam/json
 import gleam/option.{type Option, None}
-import sonic/api/client.{type ApiResult}
+
+import sonic/api/client.{type ApiResult, type Auth}
 import sonic/api/types.{type Session, type User, Session, User}
 
 /// `POST /auth/request_code` — send a one-time code to an email address.
@@ -82,6 +83,44 @@ pub fn verify_wallet(
     ]),
     expect: session(),
   )
+}
+
+/// `POST /auth/bind_email` — attach a verified address to this account.
+///
+/// The answer is one of two shapes. Normally it is the updated profile. But if
+/// that address already has an account and this one has no username yet, the
+/// backend *merges* this account into that one and answers `{merged: true}`
+/// with a new token — at which point the session that made the request is dead.
+/// Missing that case leaves the visitor holding an invalid cookie and looking
+/// signed out for no visible reason.
+pub fn bind_email(
+  email email: String,
+  code code: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(Option(String))) {
+  client.post(
+    path: "/auth/bind_email",
+    query: [],
+    auth: auth,
+    body: json.object([
+      #("email", json.string(email)),
+      #("code", json.string(code)),
+    ]),
+    expect: merged_token(),
+  )
+}
+
+/// `Some(token)` when the accounts were merged and the session must be
+/// replaced; `None` when the address was simply attached.
+fn merged_token() -> Decoder(Option(String)) {
+  use merged <- decode.optional_field("merged", False, decode.bool)
+  case merged {
+    True -> {
+      use token <- decode.field("token", decode.string)
+      decode.success(option.Some(token))
+    }
+    False -> decode.success(option.None)
+  }
 }
 
 fn session() -> Decoder(Session) {

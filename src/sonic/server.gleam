@@ -28,6 +28,7 @@ import sonic/api/types.{
 import sonic/router
 import sonic/view/layout
 import sonic/view/page/badge_detail
+import sonic/view/page/bind_email
 import sonic/view/page/checkin
 import sonic/view/page/communities
 import sonic/view/page/discover
@@ -245,6 +246,8 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.PopupCities, _ -> render(popup_cities_page(ctx.lang), ctx)
     router.GroupSetting(handle), Get -> group_form(handle, req, "setting", None)
     router.GroupSetting(handle), Post -> save_group_setting(handle, req)
+    router.BindEmail, Get -> bind_email_page(req, None)
+    router.BindEmail, Post -> bind_email_step(req)
     router.SendBadge(id), Get -> send_badge_page(id, req, None, False)
     router.SendBadge(id), Post -> do_send_badge(id, req)
     router.EventCheckin(id), Get -> checkin_page(id, req, None)
@@ -1152,6 +1155,66 @@ fn group_form(
         }
       }
     }
+  }
+}
+
+/// Attaching an email to a wallet account. Two steps, like sign-in.
+fn bind_email_page(req: Request, problem: Option(String)) -> Promise(Response) {
+  let ctx = ctx_of(req)
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=/bind-email", None))
+    Some(_) -> page(200, bind_email.ask_email(ctx.lang, problem), ctx)
+  }
+}
+
+fn bind_email_step(req: Request) -> Promise(Response) {
+  let ctx = ctx_of(req)
+  case req.token, request.field(req, "email") {
+    None, _ -> promise.resolve(Redirect("/signin?return=/bind-email", None))
+    _, None -> bind_email_page(req, Some("Enter an email address."))
+    Some(_), Some(email) ->
+      case request.field(req, "code") {
+        // Step one: ask the API to send a code to that address.
+        None -> {
+          use result <- promise.await(auth.request_email_code(email))
+          case result {
+            Ok(_) -> page(200, bind_email.ask_code(ctx.lang, email, None), ctx)
+            Error(err) -> bind_email_page(req, Some(explain(err).1))
+          }
+        }
+        // Step two: hand back the code.
+        Some(code) -> {
+          use result <- promise.await(auth.bind_email(
+            email: email,
+            code: code,
+            auth: req.token,
+          ))
+          case result {
+            // Merged into an existing account: the session that made this
+            // request no longer exists, so the new token has to replace the
+            // cookie or the visitor is silently signed out.
+            Ok(Some(token)) ->
+              promise.resolve(Redirect("/", Some(token)))
+            Ok(None) -> promise.resolve(Redirect("/", None))
+            Error(HttpError(status, _)) if status < 500 ->
+              page(
+                200,
+                bind_email.ask_code(
+                  ctx.lang,
+                  email,
+                  Some("That code didn't work."),
+                ),
+                ctx,
+              )
+            Error(err) ->
+              page(
+                200,
+                bind_email.ask_code(ctx.lang, email, Some(explain(err).1)),
+                ctx,
+              )
+          }
+        }
+      }
   }
 }
 
