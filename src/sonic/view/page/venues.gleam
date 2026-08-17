@@ -14,7 +14,7 @@ import sonic/api/types.{type GroupDetail, type VenueDetail}
 import sonic/i18n.{type Lang}
 import sonic/view/image
 
-pub fn view(group: GroupDetail, lang: Lang) -> Element(msg) {
+pub fn view(group: GroupDetail, lang: Lang, may_edit: Bool) -> Element(msg) {
   html.div([attribute.class("page-width-sm min-h-[100svh] !pt-4 !pb-12")], [
     html.div([attribute.class("flex-row-item-center justify-between mb-4")], [
       html.a(
@@ -35,12 +35,23 @@ pub fn view(group: GroupDetail, lang: Lang) -> Element(msg) {
         html.div([attribute.class("text-center text-gray-400 py-10")], [
           element.text(i18n.t(lang, "No venues yet.")),
         ])
-      rows -> html.div([], list.map(rows, fn(venue) { card(venue, lang) }))
+      rows ->
+        html.div(
+          [],
+          list.map(rows, fn(venue) {
+            card(venue, lang, may_edit, group_handle(group))
+          }),
+        )
     },
   ])
 }
 
-fn card(venue: VenueDetail, lang: Lang) -> Element(msg) {
+fn card(
+  venue: VenueDetail,
+  lang: Lang,
+  may_edit: Bool,
+  handle: String,
+) -> Element(msg) {
   html.div([attribute.class("bg-white rounded-lg shadow p-4 mb-3")], [
     case picture(venue) {
       Some(src) ->
@@ -71,6 +82,21 @@ fn card(venue: VenueDetail, lang: Lang) -> Element(msg) {
     html.div([attribute.class("text-sm")], [
       element.text(i18n.t(lang, "Address") <> ": " <> address(venue)),
     ]),
+    // Only offered to someone signed in; the API still decides whether the
+    // save is allowed, so this is a shortcut rather than a permission check.
+    case may_edit {
+      True ->
+        html.a(
+          [
+            attribute.href(
+              "/event/" <> handle <> "/venues/edit/" <> venue.id,
+            ),
+            attribute.class("text-sm text-[#6cd7b2] mt-2 inline-block"),
+          ],
+          [element.text(i18n.t(lang, "Edit"))],
+        )
+      False -> element.none()
+    },
   ])
 }
 

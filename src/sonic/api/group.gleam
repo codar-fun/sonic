@@ -171,6 +171,79 @@ pub fn create_venue(
   )
 }
 
+/// `GET /venues/:id` — one venue.
+pub fn venue(id id: String, auth auth: Auth) -> Promise(ApiResult(VenueDetail)) {
+  client.get(
+    path: "/venues/" <> id,
+    query: [],
+    auth: auth,
+    expect: decoders.venue_detail(),
+  )
+}
+
+/// `GET /tracks/:id` — one programme.
+pub fn track(id id: String, auth auth: Auth) -> Promise(ApiResult(TrackDetail)) {
+  client.get(
+    path: "/tracks/" <> id,
+    query: [],
+    auth: auth,
+    expect: decoders.track_detail(),
+  )
+}
+
+/// `PATCH /venues/:id` — edit a venue.
+pub fn update_venue(
+  id id: String,
+  name name: String,
+  about about: String,
+  capacity capacity: Option(Int),
+  auth auth: Auth,
+) -> Promise(ApiResult(VenueDetail)) {
+  client.patch(
+    path: "/venues/" <> id,
+    query: [],
+    auth: auth,
+    body: json.object([
+      #(
+        "venue",
+        json.object([
+          #("name", json.string(name)),
+          #("about", json.string(about)),
+          #("capacity", case capacity {
+            Some(n) -> json.int(n)
+            None -> json.null()
+          }),
+        ]),
+      ),
+    ]),
+    expect: decoders.venue_detail(),
+  )
+}
+
+/// `PATCH /tracks/:id` — edit a programme.
+pub fn update_track(
+  id id: String,
+  title title: String,
+  description description: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(TrackDetail)) {
+  client.patch(
+    path: "/tracks/" <> id,
+    query: [],
+    auth: auth,
+    body: json.object([
+      #(
+        "track",
+        json.object([
+          #("title", json.string(title)),
+          #("description", json.string(description)),
+        ]),
+      ),
+    ]),
+    expect: decoders.track_detail(),
+  )
+}
+
 /// `POST /tracks` — add a programme to a group.
 pub fn create_track(
   group_id group_id: String,

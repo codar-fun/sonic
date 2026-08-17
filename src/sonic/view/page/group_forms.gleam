@@ -10,7 +10,7 @@ import gleam/option.{type Option, None, Some}
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
-import sonic/api/types.{type GroupDetail}
+import sonic/api/types.{type GroupDetail, type TrackDetail, type VenueDetail}
 import sonic/i18n.{type Lang}
 
 /// One field: a label, and the control under it.
@@ -117,18 +117,37 @@ pub fn settings_fields(group: GroupDetail) -> List(Field) {
   ]
 }
 
-pub fn venue_fields() -> List(Field) {
+/// Blank to add one, filled to edit one — the same three fields either way.
+pub fn venue_fields(existing: Option(VenueDetail)) -> List(Field) {
+  let #(name, about, capacity) = case existing {
+    Some(venue) -> #(
+      option_text(venue.name),
+      option_text(venue.about),
+      case venue.capacity {
+        Some(n) -> int.to_string(n)
+        None -> ""
+      },
+    )
+    None -> #("", "", "")
+  }
   [
-    Text("name", "Venue Name", "", True),
-    Area("about", "Description", ""),
-    Number("capacity", "Capacity", ""),
+    Text("name", "Venue Name", name, True),
+    Area("about", "Description", about),
+    Number("capacity", "Capacity", capacity),
   ]
 }
 
-pub fn track_fields() -> List(Field) {
+pub fn track_fields(existing: Option(TrackDetail)) -> List(Field) {
+  let #(title, description) = case existing {
+    Some(track) -> #(
+      option_text(track.title),
+      option_text(track.description),
+    )
+    None -> #("", "")
+  }
   [
-    Text("title", "Program Name", "", True),
-    Area("description", "Description", ""),
+    Text("title", "Program Name", title, True),
+    Area("description", "Description", description),
   ]
 }
 

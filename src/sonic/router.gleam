@@ -23,6 +23,8 @@ pub type Route {
   GroupSetting(handle: String)
   VenueCreate(handle: String)
   TrackCreate(handle: String)
+  VenueEdit(handle: String, id: String)
+  TrackEdit(handle: String, id: String)
   BadgeDetail(id: String)
   BadgeClassDetail(id: String)
   Schedule(handle: String)
@@ -79,6 +81,8 @@ pub fn parse(path: String) -> Route {
     ["event", handle, "setting"] -> GroupSetting(handle)
     ["event", handle, "venues", "create"] -> VenueCreate(handle)
     ["event", handle, "tracks", "create"] -> TrackCreate(handle)
+    ["event", handle, "venues", "edit", id] -> VenueEdit(handle, id)
+    ["event", handle, "tracks", "edit", id] -> TrackEdit(handle, id)
     ["profile", handle] -> Profile(handle)
     ["profile", handle, "edit"] -> ProfileEdit(handle)
     ["event", handle, "schedule", "list"] -> Schedule(handle)
@@ -123,6 +127,8 @@ pub fn href(route: Route) -> String {
     GroupSetting(handle) -> "/event/" <> handle <> "/setting"
     VenueCreate(handle) -> "/event/" <> handle <> "/venues/create"
     TrackCreate(handle) -> "/event/" <> handle <> "/tracks/create"
+    VenueEdit(handle, id) -> "/event/" <> handle <> "/venues/edit/" <> id
+    TrackEdit(handle, id) -> "/event/" <> handle <> "/tracks/edit/" <> id
     BadgeDetail(id) -> "/badge/" <> id
     BadgeClassDetail(id) -> "/badge-class/" <> id
     Schedule(handle) -> "/event/" <> handle <> "/schedule"

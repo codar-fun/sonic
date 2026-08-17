@@ -242,6 +242,10 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.PopupCities, _ -> render(popup_cities_page(ctx.lang), ctx)
     router.GroupSetting(handle), Get -> group_form(handle, req, "setting", None)
     router.GroupSetting(handle), Post -> save_group_setting(handle, req)
+    router.VenueEdit(handle, id), Get -> venue_edit_page(handle, id, req, None)
+    router.VenueEdit(handle, id), Post -> save_venue_edit(handle, id, req)
+    router.TrackEdit(handle, id), Get -> track_edit_page(handle, id, req, None)
+    router.TrackEdit(handle, id), Post -> save_track_edit(handle, id, req)
     router.VenueCreate(handle), Get -> group_form(handle, req, "venue", None)
     router.VenueCreate(handle), Post -> save_venue(handle, req)
     router.TrackCreate(handle), Get -> group_form(handle, req, "track", None)
@@ -331,7 +335,7 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.Venues(handle), _ ->
       render(
         group_scoped(handle, req.token, fn(found, _token) {
-          promise.resolve(Ok(venues.view(found, ctx.lang)))
+          promise.resolve(Ok(venues.view(found, ctx.lang, ctx.signed_in)))
         }),
         ctx,
       )
@@ -1107,12 +1111,12 @@ fn group_form(
             "venue" -> #(
               "Add a Venue",
               "Save",
-              group_forms.venue_fields(),
+              group_forms.venue_fields(None),
             )
             "track" -> #(
               "Add a Program",
               "Save",
-              group_forms.track_fields(),
+              group_forms.track_fields(None),
             )
             _ -> #(
               "Group Settings",
@@ -1134,6 +1138,145 @@ fn group_form(
             ctx,
           )
         }
+      }
+    }
+  }
+}
+
+/// Editing a venue or a programme. Same form as adding one, filled from the
+/// record — so the two cannot drift, and neither can the labels.
+fn venue_edit_page(
+  handle: String,
+  id: String,
+  req: Request,
+  problem: Option(String),
+) -> Promise(Response) {
+  let ctx = ctx_of(req)
+  let back = "/event/" <> handle <> "/venues/edit/" <> id
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    Some(_) -> {
+      use found <- promise.await(group.detail(handle: handle, auth: req.token))
+      use existing <- promise.map(group.venue(id: id, auth: req.token))
+      case found, existing {
+        Ok(owner), Ok(venue) ->
+          Page(
+            200,
+            document(
+              group_forms.view(
+                owner,
+                ctx.lang,
+                "Edit Venue",
+                back,
+                "Save",
+                group_forms.venue_fields(Some(venue)),
+                problem,
+              ),
+              ctx,
+            ),
+          )
+        Error(err), _ | _, Error(err) -> {
+          let #(status, message) = explain(err)
+          Page(status, document(error_page.view(status, message), ctx))
+        }
+      }
+    }
+  }
+}
+
+fn save_venue_edit(
+  handle: String,
+  id: String,
+  req: Request,
+) -> Promise(Response) {
+  let field = fn(name) { option.unwrap(request.field(req, name), "") }
+  case req.token {
+    None ->
+      promise.resolve(Redirect(
+        "/signin?return=/event/" <> handle <> "/venues/edit/" <> id,
+        None,
+      ))
+    Some(_) -> {
+      use result <- promise.await(group.update_venue(
+        id: id,
+        name: field("name"),
+        about: field("about"),
+        capacity: group_forms.optional_int(field("capacity")),
+        auth: req.token,
+      ))
+      case result {
+        Ok(_) ->
+          promise.resolve(Redirect("/event/" <> handle <> "/venues", None))
+        Error(err) ->
+          venue_edit_page(handle, id, req, Some(explain(err).1))
+      }
+    }
+  }
+}
+
+fn track_edit_page(
+  handle: String,
+  id: String,
+  req: Request,
+  problem: Option(String),
+) -> Promise(Response) {
+  let ctx = ctx_of(req)
+  let back = "/event/" <> handle <> "/tracks/edit/" <> id
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    Some(_) -> {
+      use found <- promise.await(group.detail(handle: handle, auth: req.token))
+      use existing <- promise.map(group.track(id: id, auth: req.token))
+      case found, existing {
+        Ok(owner), Ok(track) ->
+          Page(
+            200,
+            document(
+              group_forms.view(
+                owner,
+                ctx.lang,
+                "Edit Program",
+                back,
+                "Save",
+                group_forms.track_fields(Some(track)),
+                problem,
+              ),
+              ctx,
+            ),
+          )
+        Error(err), _ | _, Error(err) -> {
+          let #(status, message) = explain(err)
+          Page(status, document(error_page.view(status, message), ctx))
+        }
+      }
+    }
+  }
+}
+
+fn save_track_edit(
+  handle: String,
+  id: String,
+  req: Request,
+) -> Promise(Response) {
+  let field = fn(name) { option.unwrap(request.field(req, name), "") }
+  case req.token {
+    None ->
+      promise.resolve(Redirect(
+        "/signin?return=/event/" <> handle <> "/tracks/edit/" <> id,
+        None,
+      ))
+    Some(_) -> {
+      use result <- promise.await(group.update_track(
+        id: id,
+        title: field("title"),
+        description: field("description"),
+        auth: req.token,
+      ))
+      case result {
+        Ok(_) ->
+          promise.resolve(Redirect("/event/" <> handle <> "/tracks", None))
+        Error(err) ->
+          track_edit_page(handle, id, req, Some(explain(err).1))
       }
     }
   }
