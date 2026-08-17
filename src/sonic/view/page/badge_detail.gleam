@@ -9,6 +9,7 @@ import gleam/option.{type Option, None, Some}
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
+import sonic/i18n.{type Lang}
 import sonic/api/types.{type Badge, type BadgeClass, type Page, type Profile}
 import sonic/view/event_time
 
@@ -29,7 +30,12 @@ pub fn badge(item: Badge) -> Element(msg) {
 }
 
 /// A badge class, with the badges minted from it.
-pub fn class(item: BadgeClass, issued: Page(Badge)) -> Element(msg) {
+pub fn class(
+  item: BadgeClass,
+  issued: Page(Badge),
+  may_send: Bool,
+  lang: Lang,
+) -> Element(msg) {
   html.div([attribute.class("page-width-sm min-h-[100svh] !pt-6 !pb-12")], [
     html.div([attribute.class("flex flex-col items-center")], [
       image(item.image_url, 160),

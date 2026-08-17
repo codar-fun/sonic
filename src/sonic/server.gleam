@@ -46,6 +46,7 @@ import sonic/view/page/register
 import sonic/view/page/profile
 import sonic/view/page/profile_edit
 import sonic/view/page/schedule
+import sonic/view/page/send_badge
 import sonic/view/page/search
 import sonic/view/page/signin
 import sonic/view/page/venues
@@ -244,6 +245,8 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.PopupCities, _ -> render(popup_cities_page(ctx.lang), ctx)
     router.GroupSetting(handle), Get -> group_form(handle, req, "setting", None)
     router.GroupSetting(handle), Post -> save_group_setting(handle, req)
+    router.SendBadge(id), Get -> send_badge_page(id, req, None, False)
+    router.SendBadge(id), Post -> do_send_badge(id, req)
     router.EventCheckin(id), Get -> checkin_page(id, req, None)
     router.EventCheckin(id), Post -> do_checkin(id, req)
     router.GroupMembers(handle), Get -> group_members_page(handle, req, None)
@@ -284,7 +287,7 @@ pub fn handle(req: Request) -> Promise(Response) {
       ))
     router.BadgeDetail(id), _ -> render(badge_page(id, req.token), ctx)
     router.BadgeClassDetail(id), _ ->
-      render(badge_class_page(id, req.token), ctx)
+      render(badge_class_page(id, req.token, ctx.signed_in, ctx.lang), ctx)
     router.GroupHome(handle), _ ->
       render(
         group_home_page(handle, req.token, tab_of(req), signed_in),
@@ -576,6 +579,8 @@ fn badge_page(
 fn badge_class_page(
   id: String,
   token: Option(String),
+  signed_in: Bool,
+  lang: Lang,
 ) -> Promise(Result(Element(msg), ApiError)) {
   let class = badge.class(id: id, auth: token)
   let issued = badge.issued_from(class_id: id, page: 1, limit: 30, auth: token)
@@ -584,7 +589,8 @@ fn badge_class_page(
   use issued_result <- promise.map(issued)
 
   case class_result, issued_result {
-    Ok(found), Ok(page) -> Ok(badge_detail.class(found, page))
+    Ok(found), Ok(page) ->
+      Ok(badge_detail.class(found, page, signed_in, lang))
     Error(err), _ -> Error(err)
     _, Error(err) -> Error(err)
   }
@@ -1143,6 +1149,71 @@ fn group_form(
             ),
             ctx,
           )
+        }
+      }
+    }
+  }
+}
+
+/// Awarding a badge. Needs a session; the API decides whether this account
+/// may issue that badge class.
+fn send_badge_page(
+  id: String,
+  req: Request,
+  problem: Option(String),
+  sent: Bool,
+) -> Promise(Response) {
+  let ctx = ctx_of(req)
+  let back = "/badge-class/" <> id <> "/send-badge"
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    Some(_) -> {
+      use found <- promise.map(badge.class(id: id, auth: req.token))
+      case found {
+        Ok(badge_class) ->
+          Page(
+            200,
+            document(
+              send_badge.view(badge_class, ctx.lang, problem, sent),
+              ctx,
+            ),
+          )
+        Error(err) -> {
+          let #(status, message) = explain(err)
+          Page(status, document(error_page.view(status, message), ctx))
+        }
+      }
+    }
+  }
+}
+
+fn do_send_badge(id: String, req: Request) -> Promise(Response) {
+  let back = "/badge-class/" <> id <> "/send-badge"
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    Some(_) -> {
+      // One receiver per line, blanks dropped: a trailing newline should not
+      // become an empty receiver that fails the whole batch.
+      let receivers =
+        option.unwrap(request.field(req, "receivers"), "")
+        |> string.replace("\r", "")
+        |> string.split("\n")
+        |> list.map(string.trim)
+        |> list.filter(fn(line) { line != "" })
+
+      case receivers {
+        [] ->
+          send_badge_page(id, req, Some("Enter at least one receiver."), False)
+        _ -> {
+          use result <- promise.await(badge.send(
+            badge_class_id: id,
+            receivers: receivers,
+            auth: req.token,
+          ))
+          case result {
+            Ok(_) -> send_badge_page(id, req, None, True)
+            Error(err) -> send_badge_page(id, req, Some(explain(err).1), False)
+          }
         }
       }
     }
