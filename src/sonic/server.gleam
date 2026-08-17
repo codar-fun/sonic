@@ -623,6 +623,9 @@ fn schedule_page(
   }
 }
 
+@external(javascript, "../sonic_ffi.mjs", "from_local_input")
+fn from_local_input(local: String, zone: String) -> String
+
 @external(javascript, "../sonic_ffi.mjs", "secure_cookies")
 fn secure_cookies() -> Bool
 
@@ -1257,13 +1260,17 @@ fn save_event_edit(id: String, req: Request) -> Promise(Response) {
       promise.resolve(Redirect("/signin?return=/event/edit/" <> id, None))
     Some(_) -> {
       let field = fn(name) { option.unwrap(request.field(req, name), "") }
+      let zone = case field("timezone") {
+        "" -> "UTC"
+        value -> value
+      }
       use result <- promise.await(event.update(
         id: id,
         title: field("title"),
         content: field("content"),
-        start_time: field("start_time") <> ":00",
-        end_time: field("end_time") <> ":00",
-        timezone: field("timezone"),
+        start_time: from_local_input(field("start_time"), zone),
+        end_time: from_local_input(field("end_time"), zone),
+        timezone: zone,
         meeting_url: field("meeting_url"),
         auth: req.token,
       ))
@@ -1318,11 +1325,12 @@ fn create_event(handle: String, req: Request) -> Promise(Response) {
             group_id: group.id,
             title: field("title"),
             content: field("content"),
-            // `datetime-local` gives `2026-08-20T14:30`; the API wants a full
-            // timestamp, and the seconds are the form's to supply, not the
-            // reader's.
-            start_time: field("start_time") <> ":00",
-            end_time: field("end_time") <> ":00",
+            // The form collects a wall clock in the chosen zone; the API
+            // stores instants. Converting here rather than appending "Z"
+            // means an event created at 14:30 in Bangkok is at 14:30 there,
+            // not at 14:30 UTC.
+            start_time: from_local_input(field("start_time"), zone),
+            end_time: from_local_input(field("end_time"), zone),
             timezone: zone,
             meeting_url: field("meeting_url"),
             auth: req.token,

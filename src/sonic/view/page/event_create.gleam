@@ -5,7 +5,6 @@
 //// of those is its own control, and a form that posted empty values for them
 //// would write defaults nobody chose.
 
-import gleam/string
 import gleam/option.{type Option, None, Some}
 import lustre/attribute
 import lustre/element.{type Element}
@@ -168,11 +167,11 @@ fn field(existing: Option(Event), which: Which) -> String {
         Title -> event.title
         Content -> option_or(event.content, "")
         Meeting -> option_or(event.meeting_url, "")
-        // `datetime-local` will not accept an offset or seconds, so the stored
-        // instant is trimmed to `YYYY-MM-DDTHH:MM`. A value it cannot parse is
-        // dropped silently, which would blank the field on every edit.
-        Start -> string.slice(event.start_time, 0, 16)
-        End -> string.slice(event.end_time, 0, 16)
+        // Shown as the wall clock in the event's own zone, not as UTC. The
+        // input carries no zone, so offering 07:30 under a field labelled
+        // Asia/Bangkok invites someone to "correct" a 14:30 event and move it.
+        Start -> to_local_input(event.start_time, zone(event))
+        End -> to_local_input(event.end_time, zone(event))
       }
   }
 }
@@ -183,3 +182,10 @@ fn option_or(value: Option(String), fallback: String) -> String {
     _ -> fallback
   }
 }
+
+fn zone(event: Event) -> String {
+  option_or(event.timezone, "UTC")
+}
+
+@external(javascript, "../../../sonic_ffi.mjs", "to_local_input")
+fn to_local_input(iso: String, zone: String) -> String

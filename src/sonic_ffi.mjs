@@ -372,6 +372,60 @@ export function label_color(label) {
   return color;
 }
 
+// A stored instant as the wall-clock time in a zone, shaped for
+// `datetime-local`: `2024-12-06T14:30`.
+//
+// The input has no notion of zone, so it must be given the local reading. An
+// event at 07:30Z in Bangkok starts at 14:30, and offering 07:30 under a field
+// labelled Asia/Bangkok invites someone to "correct" it and move the event.
+export function to_local_input(iso, zone) {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone || "UTC",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hour12: false,
+    }).formatToParts(d);
+    const at = (t) => parts.find((p) => p.type === t)?.value ?? "";
+    const hour = at("hour") === "24" ? "00" : at("hour");
+    return `${at("year")}-${at("month")}-${at("day")}T${hour}:${at("minute")}`;
+  } catch {
+    return "";
+  }
+}
+
+// The reverse: a wall-clock reading in a zone back to a UTC instant.
+//
+// Done by measuring the zone's offset at that moment rather than assuming one.
+// A fixed offset is wrong twice a year in any zone that observes daylight
+// saving, and the error is silent — the event simply moves by an hour.
+export function from_local_input(local, zone) {
+  try {
+    if (!local) return "";
+    // Read as if UTC, then ask what that instant reads as in the zone; the
+    // difference between the two is the offset to remove.
+    const asUtc = new Date(`${local}:00Z`);
+    if (Number.isNaN(asUtc.getTime())) return "";
+
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone || "UTC",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+    }).formatToParts(asUtc);
+    const at = (t) => parts.find((p) => p.type === t)?.value ?? "00";
+    const hour = at("hour") === "24" ? "00" : at("hour");
+    const shown = new Date(
+      `${at("year")}-${at("month")}-${at("day")}T${hour}:${at("minute")}:${at("second")}Z`,
+    );
+
+    const offset = shown.getTime() - asUtc.getTime();
+    return new Date(asUtc.getTime() - offset).toISOString().slice(0, 19) + "Z";
+  } catch {
+    return "";
+  }
+}
+
 // Milliseconds since the epoch. Sorting a profile's events depends on where
 // "now" falls relative to each of them, which no payload can say.
 export function now_ms() {

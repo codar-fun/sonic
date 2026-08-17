@@ -165,3 +165,30 @@ pub fn api_error_message_is_surfaced_test() {
   // Anything else falls back to the body rather than to an empty string.
   server.api_message("not json") |> should.equal("not json")
 }
+
+/// The edit form shows a wall clock in the event's own zone and stores an
+/// instant. Getting one direction right and the other wrong moves the event,
+/// silently, by the size of the offset.
+pub fn local_time_round_trips_test() {
+  let round = fn(iso, zone) {
+    from_local_input(to_local_input(iso, zone), zone)
+  }
+  round("2024-12-06T07:30:00Z", "Asia/Bangkok")
+  |> should.equal("2024-12-06T07:30:00Z")
+
+  // Either side of a daylight-saving change: a fixed offset would be an hour
+  // out for one of these.
+  round("2026-07-01T16:00:00Z", "America/New_York")
+  |> should.equal("2026-07-01T16:00:00Z")
+  round("2026-01-01T16:00:00Z", "America/New_York")
+  |> should.equal("2026-01-01T16:00:00Z")
+
+  to_local_input("2024-12-06T07:30:00Z", "Asia/Bangkok")
+  |> should.equal("2024-12-06T14:30")
+}
+
+@external(javascript, "./sonic_ffi.mjs", "to_local_input")
+fn to_local_input(iso: String, zone: String) -> String
+
+@external(javascript, "./sonic_ffi.mjs", "from_local_input")
+fn from_local_input(local: String, zone: String) -> String
