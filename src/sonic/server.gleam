@@ -246,6 +246,8 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.VenueCreate(handle), Post -> save_venue(handle, req)
     router.TrackCreate(handle), Get -> group_form(handle, req, "track", None)
     router.TrackCreate(handle), Post -> save_track(handle, req)
+    router.EventEdit(id), Get -> event_edit_page(id, req, None)
+    router.EventEdit(id), Post -> save_event_edit(id, req)
     router.EventCreate(handle), Get -> event_create_page(handle, req, None)
     router.EventCreate(handle), Post -> create_event(handle, req)
     router.Register, Get -> register_page(req, "", None)
@@ -1207,6 +1209,72 @@ fn save_track(handle: String, req: Request) -> Promise(Response) {
   result |> to_destination("/event/" <> handle <> "/tracks")
 }
 
+/// Editing an event. The same form as creating one, filled from the event.
+fn event_edit_page(
+  id: String,
+  req: Request,
+  problem: Option(String),
+) -> Promise(Response) {
+  let ctx = ctx_of(req)
+  let back = "/event/edit/" <> id
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    Some(_) -> {
+      use found <- promise.await(event.detail(id: id, auth: req.token))
+      case found {
+        Error(err) -> {
+          let #(status, message) = explain(err)
+          page(status, error_page.view(status, message), ctx)
+        }
+        Ok(existing) -> {
+          // The form needs the group for its Cancel link; an event without one
+          // still edits, it just goes home instead.
+          use owner <- promise.map(case existing.group {
+            Some(group) ->
+              group.detail(handle: option.unwrap(group.name, ""), auth: req.token)
+            None -> promise.resolve(Error(HttpError(404, "")))
+          })
+          case owner {
+            Ok(group) ->
+              Page(
+                200,
+                document(
+                  event_create.view(group, ctx.lang, problem, Some(existing)),
+                  ctx,
+                ),
+              )
+            Error(_) -> Page(404, document(error_page.view(404, "Not found."), ctx))
+          }
+        }
+      }
+    }
+  }
+}
+
+fn save_event_edit(id: String, req: Request) -> Promise(Response) {
+  case req.token {
+    None ->
+      promise.resolve(Redirect("/signin?return=/event/edit/" <> id, None))
+    Some(_) -> {
+      let field = fn(name) { option.unwrap(request.field(req, name), "") }
+      use result <- promise.await(event.update(
+        id: id,
+        title: field("title"),
+        content: field("content"),
+        start_time: field("start_time") <> ":00",
+        end_time: field("end_time") <> ":00",
+        timezone: field("timezone"),
+        meeting_url: field("meeting_url"),
+        auth: req.token,
+      ))
+      case result {
+        Ok(_) -> promise.resolve(Redirect("/event/detail/" <> id, None))
+        Error(err) -> event_edit_page(id, req, Some(explain(err).1))
+      }
+    }
+  }
+}
+
 /// Creating an event in a group. Needs a session; the API decides whether
 /// this account may publish in that group.
 fn event_create_page(
@@ -1222,7 +1290,7 @@ fn event_create_page(
       use found <- promise.await(group.detail(handle: handle, auth: req.token))
       case found {
         Ok(group) ->
-          page(200, event_create.view(group, ctx.lang, problem), ctx)
+          page(200, event_create.view(group, ctx.lang, problem, None), ctx)
         Error(err) -> {
           let #(status, message) = explain(err)
           page(status, error_page.view(status, message), ctx)

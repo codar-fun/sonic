@@ -225,6 +225,41 @@ pub fn create(
   )
 }
 
+/// `PATCH /events/:id` — edit an event.
+///
+/// Only the fields the form owns. Upstream syncs roles and tickets in separate
+/// calls after this one; sending them here as empty would delete them.
+pub fn update(
+  id id: String,
+  title title: String,
+  content content: String,
+  start_time start_time: String,
+  end_time end_time: String,
+  timezone timezone: String,
+  meeting_url meeting_url: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(Event)) {
+  client.patch(
+    path: "/events/" <> id,
+    query: [],
+    auth: auth,
+    body: json.object([
+      #(
+        "event",
+        json.object([
+          #("title", json.string(title)),
+          #("content", json.string(content)),
+          #("start_time", json.string(start_time)),
+          #("end_time", json.string(end_time)),
+          #("timezone", json.string(timezone)),
+          #("meeting_url", json.string(meeting_url)),
+        ]),
+      ),
+    ]),
+    expect: decoders.event(),
+  )
+}
+
 /// `GET /comments?comment_type=comment&item_type=Event&item_id=…`
 ///
 /// `comment_type` is not optional even though it looks it: soon's index

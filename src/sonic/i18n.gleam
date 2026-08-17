@@ -137,6 +137,7 @@ const zh = [
   #("Your username", "你的用户名"),
   #("Underscores can also be used", "也可以使用下划线"),
   #("Create Event", "创建活动"),
+  #("Edit Event", "编辑活动"),
   #("Event Name", "活动名称"),
   #("Start Time", "开始时间"),
   #("End Time", "结束时间"),

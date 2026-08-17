@@ -19,6 +19,7 @@ pub type Route {
   PopupCities
   Register
   EventCreate(handle: String)
+  EventEdit(id: String)
   GroupSetting(handle: String)
   VenueCreate(handle: String)
   TrackCreate(handle: String)
@@ -60,6 +61,7 @@ pub fn parse(path: String) -> Route {
     ["event", "detail", id] -> EventDetail(id)
     ["event", "detail", id, "comment"] -> EventComment(id)
     ["event", "detail", id, "attend"] -> EventAttend(id)
+    ["event", "edit", id] -> EventEdit(id)
     ["event", "share", id] -> EventShare(id)
     // `detail` is a path segment, not a group handle. Without this guard
     // /event/detail (the id-less form) would resolve to a group named
@@ -117,6 +119,7 @@ pub fn href(route: Route) -> String {
     PopupCities -> "/popup-city"
     Register -> "/register"
     EventCreate(handle) -> "/event/" <> handle <> "/create"
+    EventEdit(id) -> "/event/edit/" <> id
     GroupSetting(handle) -> "/event/" <> handle <> "/setting"
     VenueCreate(handle) -> "/event/" <> handle <> "/venues/create"
     TrackCreate(handle) -> "/event/" <> handle <> "/tracks/create"
