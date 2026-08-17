@@ -179,6 +179,12 @@ pub fn handle(req: Request) -> Promise(Response) {
           use repeats <- promise.await(recurrence_of(found))
           // Only fetched for the tab that shows them; the content tab would
           // pay for a request it never renders.
+          // Whether the caller is on the attendee list decides which control
+          // the panel shows, so it is asked for even on the content tab.
+          use attending <- promise.await(case req.token {
+            Some(_) -> event.is_attending(id: id, auth: req.token)
+            None -> promise.resolve(False)
+          })
           use talk <- promise.await(
             promise.map(event.comments(id: id), fn(result) {
               case result {
@@ -200,7 +206,16 @@ pub fn handle(req: Request) -> Promise(Response) {
           Page(
             200,
             document_meta(
-              event_detail.view(found, repeats, signed_in, tab, people, talk),
+              event_detail.view(
+                found,
+                repeats,
+                signed_in,
+                tab,
+                people,
+                talk,
+                attending,
+                ctx.lang,
+              ),
               ctx,
               event_meta(found),
             ),
@@ -216,6 +231,9 @@ pub fn handle(req: Request) -> Promise(Response) {
       }
     }
     router.EventComment(id), Post -> post_comment(id, req)
+    router.EventAttend(id), Post -> attend_event(id, req)
+    router.EventAttend(id), Get ->
+      promise.resolve(Redirect("/event/detail/" <> id, None))
     router.EventComment(id), Get ->
       promise.resolve(Redirect("/event/detail/" <> id, None))
 
@@ -1019,6 +1037,23 @@ fn finish_wallet_signin(req: Request) -> Promise(Response) {
       }
     }
     _, _ -> promise.resolve(Redirect("/signin", None))
+  }
+}
+
+/// Attending or leaving. Back to the event either way, where the panel now
+/// reflects the change.
+fn attend_event(id: String, req: Request) -> Promise(Response) {
+  let back = "/event/detail/" <> id
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    Some(_) -> {
+      let leaving = request.field(req, "action") == Some("leave")
+      use _ <- promise.map(case leaving {
+        True -> event.leave(id: id, auth: req.token)
+        False -> event.attend(id: id, auth: req.token)
+      })
+      Redirect(back, None)
+    }
   }
 }
 

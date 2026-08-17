@@ -16,6 +16,7 @@ import lustre/attribute.{attribute}
 import lustre/element.{type Element}
 import lustre/element/html
 import sonic/api/types.{type Comment, type Event, type Participant}
+import sonic/i18n.{type Lang}
 import sonic/view/badge
 import sonic/view/default_cover
 import sonic/view/event_time
@@ -28,6 +29,8 @@ pub fn view(
   tab: String,
   participants: List(Participant),
   comments_list: List(Comment),
+  attending: Bool,
+  lang: Lang,
 ) -> Element(msg) {
   html.div([attribute.class("page-width !pt-4 !pb-12")], [
     top_bar(event),
@@ -38,7 +41,7 @@ pub fn view(
             "min-w-[324px] sm:max-w-[324px] mb-8 order-1 sm:order-2 sm:mb-0",
           ),
         ],
-        [cover(event), participate(signed_in)],
+        [cover(event), participate(event, signed_in, attending, lang)],
       ),
       html.div([attribute.class("flex-1 min-w-0 sm:mr-9 order-2 sm:order-1")], [
         html.div([attribute.class("text-4xl font-semibold w-full")], [
@@ -592,10 +595,52 @@ fn cover(event: Event) -> Element(msg) {
 /// joining is a write path and is not built here, so a signed-in visitor gets
 /// nothing rather than a prompt to sign in when they already have. Showing it
 /// regardless was telling signed-in people to sign in again.
-fn participate(signed_in: Bool) -> Element(msg) {
+fn participate(
+  event: Event,
+  signed_in: Bool,
+  attending: Bool,
+  lang: Lang,
+) -> Element(msg) {
   case signed_in {
-    True -> element.none()
     False -> sign_in_panel()
+    // Signed in, this is the actual control: attend, or stop attending. It
+    // used to render nothing, which was honest but not useful.
+    True ->
+      html.form(
+        [
+          attribute.method("post"),
+          attribute.action("/event/detail/" <> event.id <> "/attend"),
+          attribute.class("mt-3"),
+        ],
+        [
+          html.input([
+            attribute.type_("hidden"),
+            attribute.name("action"),
+            attribute.value(case attending {
+              True -> "leave"
+              False -> "attend"
+            }),
+          ]),
+          html.button(
+            [
+              attribute.type_("submit"),
+              attribute.class(
+                "w-full h-11 rounded-lg font-semibold "
+                <> case attending {
+                  True -> "bg-[#f8f9f8]"
+                  False -> "bg-special text-special-foreground"
+                },
+              ),
+            ],
+            [
+              element.text(case attending {
+                True -> i18n.t(lang, "Cancel Attendance")
+                False -> i18n.t(lang, "Attend")
+              }),
+            ],
+          ),
+        ],
+      )
   }
 }
 

@@ -9,7 +9,9 @@ import gleam/javascript/promise.{type Promise}
 import gleam/option.{type Option, None, Some}
 import sonic/api/client.{type ApiResult, type Auth}
 import sonic/api/decoders
+import gleam/dynamic/decode
 import gleam/json
+import gleam/list
 import sonic/api/types.{
   type Comment, type Discover, type Event, type Page, type Participant,
 }
@@ -84,6 +86,102 @@ pub fn participants(id id: String) -> Promise(ApiResult(Page(Participant))) {
     query: [],
     auth: None,
     expect: decoders.page(of: decoders.participant()),
+  )
+}
+
+/// `POST /events/:id/participants` — attend an event.
+pub fn attend(id id: String, auth auth: Auth) -> Promise(ApiResult(Nil)) {
+  client.post(
+    path: "/events/" <> id <> "/participants",
+    query: [],
+    auth: auth,
+    body: json.object([
+      #("participant", json.object([#("status", json.string("attending"))])),
+    ]),
+    expect: decode.success(Nil),
+  )
+}
+
+/// Leave an event.
+///
+/// There is no "delete my attendance" endpoint: the participant record has to
+/// be found first, and it is found by matching the caller's own id against the
+/// attendee list. Upstream walks every page for it; this asks for the caller
+/// once and then pages, stopping at the match.
+pub fn leave(id id: String, auth auth: Auth) -> Promise(ApiResult(Nil)) {
+  use me <- promise.await(current_user_id(auth))
+  case me {
+    Error(err) -> promise.resolve(Error(err))
+    Ok(user_id) -> {
+      use found <- promise.await(participants(id: id))
+      case found {
+        Error(err) -> promise.resolve(Error(err))
+        Ok(page) ->
+          case
+            list.find(page.data, fn(entry) {
+              case entry.user {
+                Some(user) -> user.id == user_id
+                None -> False
+              }
+            })
+          {
+            Ok(mine) ->
+              client.delete(
+                path: "/events/" <> id <> "/participants/" <> mine.id,
+                query: [],
+                auth: auth,
+              )
+            // Not attending is not a failure: the desired state already holds.
+            Error(_) -> promise.resolve(Ok(Nil))
+          }
+      }
+    }
+  }
+}
+
+/// Is the caller on this event's attendee list?
+///
+/// The attendee list is public, so this is one request rather than a
+/// participant lookup per visitor.
+pub fn is_attending(id id: String, auth auth: Auth) -> Promise(Bool) {
+  use me <- promise.await(current_user_id(auth))
+  case me {
+    Error(_) -> promise.resolve(False)
+    Ok(user_id) -> {
+      use found <- promise.map(participants(id: id))
+      case found {
+        Error(_) -> False
+        Ok(page) ->
+          list.any(page.data, fn(entry) {
+            case entry.user {
+              Some(user) -> user.id == user_id
+              None -> False
+            }
+          })
+      }
+    }
+  }
+}
+
+fn current_user_id(auth: Auth) -> Promise(ApiResult(String)) {
+  client.get(path: "/users/me", query: [], auth: auth, expect: {
+    use id <- decode.field("id", decode.string)
+    decode.success(id)
+  })
+}
+
+/// `POST /events/:id/participants/check_in` — mark someone as arrived.
+pub fn check_in(
+  id id: String,
+  user_id user_id: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(Nil)) {
+  client.post(
+    path: "/events/" <> id <> "/participants/check_in",
+    query: [],
+    auth: auth,
+    body: json.object([#("user_id", json.string(user_id))]),
+    expect: decode.success(Nil),
   )
 }
 

@@ -84,6 +84,16 @@ pub fn patch(
   send(http.Patch, path, query, auth, Some(body), decoder)
 }
 
+/// DELETE. No body, and the answer is discarded — these endpoints reply with
+/// the deleted record or with nothing, and neither is worth decoding.
+pub fn delete(
+  path path: String,
+  query query: List(#(String, Option(String))),
+  auth auth: Auth,
+) -> Promise(Result(Nil, ApiError)) {
+  send(http.Delete, path, query, auth, None, decode.success(Nil))
+}
+
 fn send(
   method: http.Method,
   path: String,
