@@ -185,6 +185,11 @@ pub type GroupDetail {
     /// The schedule's filter is built from this rather than from whatever
     /// happens to appear in the current week.
     event_tag_list: List(String),
+    banner_link_url: Option(String),
+    banner_text: Option(String),
+    can_publish_event: Option(String),
+    can_join_event: Option(String),
+    can_view_event: Option(String),
     /// The group's venues arrive inside the group itself. There is no public
     /// `/venues?group_id=` — that endpoint is 401 for anonymous callers, and
     /// asking it turned this page into a 403 for everyone signed out.

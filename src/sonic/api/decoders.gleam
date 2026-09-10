@@ -320,6 +320,11 @@ pub fn group_detail() -> Decoder(GroupDetail) {
     [],
     decode.list(decode.string),
   )
+  use banner_link_url <- opt("banner_link_url", decode.string)
+  use banner_text <- opt("banner_text", decode.string)
+  use can_publish_event <- opt("can_publish_event", decode.string)
+  use can_join_event <- opt("can_join_event", decode.string)
+  use can_view_event <- opt("can_view_event", decode.string)
   use venues <- opt_or("venues", [], decode.list(venue_detail()))
   use start_date <- opt("start_date", decode.string)
   use end_date <- opt("end_date", decode.string)
@@ -333,6 +338,11 @@ pub fn group_detail() -> Decoder(GroupDetail) {
     image_url:,
     logo_url:,
     banner_image_url:,
+    banner_link_url:,
+    banner_text:,
+    can_publish_event:,
+    can_join_event:,
+    can_view_event:,
     location:,
     timezone:,
     event_tag_list:,

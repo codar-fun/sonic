@@ -119,3 +119,11 @@ pub fn username_rules_differ_from_group_names_test() {
   group.invalid_username("sonic-test") |> should.be_some
   group.invalid_name("sonic-test") |> should.equal(None)
 }
+
+/// The tag field is one line of text but the API takes an array. Splitting is
+/// the form's job; a trailing comma must not become an empty tag.
+pub fn tags_split_into_a_list_test() {
+  server.split_tags("AI, Business ,") |> should.equal(["AI", "Business"])
+  server.split_tags("") |> should.equal([])
+  server.split_tags("  Zuzalu  ") |> should.equal(["Zuzalu"])
+}

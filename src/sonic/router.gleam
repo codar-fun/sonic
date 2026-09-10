@@ -32,6 +32,10 @@ pub type Route {
   Notifications
   VoucherPage(id: String)
   GroupMap(handle: String)
+  GroupBanner(handle: String)
+  GroupPermission(handle: String)
+  GroupTags(handle: String)
+  GroupTimezone(handle: String)
   MarkerDetail(id: String)
   BadgeDetail(id: String)
   BadgeClassDetail(id: String)
@@ -98,6 +102,10 @@ pub fn parse(path: String) -> Route {
     ["notifications"] -> Notifications
     ["voucher", id] -> VoucherPage(id)
     ["event", handle, "map"] -> GroupMap(handle)
+    ["event", handle, "banner"] -> GroupBanner(handle)
+    ["event", handle, "permission"] -> GroupPermission(handle)
+    ["event", handle, "tags"] -> GroupTags(handle)
+    ["event", handle, "timezone"] -> GroupTimezone(handle)
     ["map", handle, "marker"] -> GroupMap(handle)
     ["marker", "detail", id] -> MarkerDetail(id)
     ["profile", handle] -> Profile(handle)
@@ -153,6 +161,10 @@ pub fn href(route: Route) -> String {
     Notifications -> "/notifications"
     VoucherPage(id) -> "/voucher/" <> id
     GroupMap(handle) -> "/event/" <> handle <> "/map"
+    GroupBanner(handle) -> "/event/" <> handle <> "/banner"
+    GroupPermission(handle) -> "/event/" <> handle <> "/permission"
+    GroupTags(handle) -> "/event/" <> handle <> "/tags"
+    GroupTimezone(handle) -> "/event/" <> handle <> "/timezone"
     MarkerDetail(id) -> "/marker/detail/" <> id
     BadgeDetail(id) -> "/badge/" <> id
     BadgeClassDetail(id) -> "/badge-class/" <> id

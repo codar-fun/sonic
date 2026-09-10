@@ -142,6 +142,48 @@ pub fn update(
   )
 }
 
+/// `PATCH /groups/:id` with an arbitrary subset of fields.
+///
+/// The banner, permissions, tags and timezone each have their own page
+/// upstream and each owns a few fields of the same record. One call taking
+/// the pairs it should write keeps every one of those pages from having to
+/// send fields it never asked about — which is how a settings form quietly
+/// clears a banner.
+pub fn patch_fields(
+  id id: String,
+  fields fields: List(#(String, Value)),
+  auth auth: Auth,
+) -> Promise(ApiResult(GroupDetail)) {
+  client.patch(
+    path: "/groups/" <> id,
+    query: [],
+    auth: auth,
+    body: json.object([
+      #(
+        "group",
+        json.object(
+          list.map(fields, fn(pair) {
+            #(pair.0, case pair.1 {
+              Text(value) -> json.string(value)
+              Words(values) -> json.array(values, json.string)
+            })
+          }),
+        ),
+      ),
+    ]),
+    expect: decoders.group_detail(),
+  )
+}
+
+/// Not every group field is a string: the tag lists are arrays, and sending
+/// one as `"AI, Business"` writes a single tag with a comma in it rather than
+/// two tags. The distinction has to survive as far as the JSON body, so it is
+/// carried rather than guessed at from the field name.
+pub type Value {
+  Text(String)
+  Words(List(String))
+}
+
 /// `POST /venues` — add a venue to a group.
 pub fn create_venue(
   group_id group_id: String,

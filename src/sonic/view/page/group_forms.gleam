@@ -6,6 +6,7 @@
 
 import gleam/int
 import gleam/list
+import gleam/string
 import gleam/option.{type Option, None, Some}
 import lustre/attribute
 import lustre/element.{type Element}
@@ -134,6 +135,66 @@ pub fn venue_fields(existing: Option(VenueDetail)) -> List(Field) {
     Text("name", "Venue Name", name, True),
     Area("about", "Description", about),
     Number("capacity", "Capacity", capacity),
+  ]
+}
+
+/// The banner strip a group can show above its events.
+pub fn banner_fields(group: GroupDetail) -> List(Field) {
+  [
+    Text("banner_text", "Banner Text", option_text(group.banner_text), False),
+    Text(
+      "banner_link_url",
+      "Banner Link",
+      option_text(group.banner_link_url),
+      False,
+    ),
+    Text(
+      "banner_image_url",
+      "Banner Image URL",
+      option_text(group.banner_image_url),
+      False,
+    ),
+  ]
+}
+
+/// Who may publish, join and see this group's events.
+pub fn permission_fields(group: GroupDetail) -> List(Field) {
+  [
+    Text(
+      "can_publish_event",
+      "Who can publish events",
+      option_text(group.can_publish_event),
+      False,
+    ),
+    Text(
+      "can_join_event",
+      "Who can join events",
+      option_text(group.can_join_event),
+      False,
+    ),
+    Text(
+      "can_view_event",
+      "Who can view events",
+      option_text(group.can_view_event),
+      False,
+    ),
+  ]
+}
+
+pub fn timezone_fields(group: GroupDetail) -> List(Field) {
+  [Text("timezone", "Timezone", option_text(group.timezone), False)]
+}
+
+/// Comma-separated on the way in and out. The API takes a list; splitting is
+/// this form's job so the field stays one line rather than a repeater.
+pub fn tag_fields(group: GroupDetail) -> List(Field) {
+  [
+    Text(
+      "event_tag_list",
+      "Event Tags",
+      string.join(group.event_tag_list, ", "),
+      False,
+    ),
   ]
 }
 

@@ -249,6 +249,18 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.PopupCities, _ -> render(popup_cities_page(ctx.lang), ctx)
     router.GroupSetting(handle), Get -> group_form(handle, req, "setting", None)
     router.GroupSetting(handle), Post -> save_group_setting(handle, req)
+    router.GroupBanner(handle), Get -> group_form(handle, req, "banner", None)
+    router.GroupBanner(handle), Post -> save_group_fields(handle, req, "banner")
+    router.GroupPermission(handle), Get ->
+      group_form(handle, req, "permission", None)
+    router.GroupPermission(handle), Post ->
+      save_group_fields(handle, req, "permission")
+    router.GroupTags(handle), Get -> group_form(handle, req, "tags", None)
+    router.GroupTags(handle), Post -> save_group_fields(handle, req, "tags")
+    router.GroupTimezone(handle), Get ->
+      group_form(handle, req, "timezone", None)
+    router.GroupTimezone(handle), Post ->
+      save_group_fields(handle, req, "timezone")
     router.GroupMap(handle), _ -> render(group_map_page(handle, req), ctx)
     router.MarkerDetail(id), _ -> render(marker_page(id, req), ctx)
     router.VoucherPage(id), Get -> voucher_page(id, req, None, None)
@@ -1131,6 +1143,18 @@ fn group_form(
         }
         Ok(group) -> {
           let #(title, submit, fields) = case which {
+            "banner" -> #("Banner", "Save", group_forms.banner_fields(group))
+            "permission" -> #(
+              "Permissions",
+              "Save",
+              group_forms.permission_fields(group),
+            )
+            "tags" -> #("Event Tags", "Save", group_forms.tag_fields(group))
+            "timezone" -> #(
+              "Timezone",
+              "Save",
+              group_forms.timezone_fields(group),
+            )
             "venue" -> #(
               "Add a Venue",
               "Save",
@@ -1670,12 +1694,57 @@ fn save_track_edit(
   }
 }
 
+/// `AI, Business ,` → `["AI", "Business"]`. Blanks dropped: a trailing comma
+/// should not create an empty tag.
+pub fn split_tags(value: String) -> List(String) {
+  value
+  |> string.split(",")
+  |> list.map(string.trim)
+  |> list.filter(fn(tag) { tag != "" })
+}
+
 fn form_path(which: String) -> String {
   case which {
     "venue" -> "venues/create"
     "track" -> "tracks/create"
+    "banner" -> "banner"
+    "permission" -> "permission"
+    "tags" -> "tags"
+    "timezone" -> "timezone"
     _ -> "setting"
   }
+}
+
+/// The banner, permission, tag and timezone pages each own a few fields of the
+/// same record, so they share one save: collect that page's fields and PATCH
+/// only those. Sending the whole record from any of them would clear whatever
+/// the others own.
+fn save_group_fields(
+  handle: String,
+  req: Request,
+  which: String,
+) -> Promise(Response) {
+  use found <- with_group(handle, req, which)
+  let field = fn(name) { option.unwrap(request.field(req, name), "") }
+  let names = case which {
+    "banner" -> ["banner_text", "banner_link_url", "banner_image_url"]
+    "permission" -> ["can_publish_event", "can_join_event", "can_view_event"]
+    "tags" -> ["event_tag_list"]
+    _ -> ["timezone"]
+  }
+  use result <- promise.map(group.patch_fields(
+    id: found.id,
+    fields: list.map(names, fn(name) {
+      case name {
+        // The tag lists are arrays on the API. One comma-separated string
+        // would land as a single tag containing commas.
+        "event_tag_list" -> #(name, group.Words(split_tags(field(name))))
+        _ -> #(name, group.Text(field(name)))
+      }
+    }),
+    auth: req.token,
+  ))
+  result |> to_destination("/event/" <> handle)
 }
 
 /// Each save resolves the group, calls one endpoint, and either goes to the
