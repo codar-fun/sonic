@@ -138,6 +138,14 @@ pub fn venue_fields(existing: Option(VenueDetail)) -> List(Field) {
   ]
 }
 
+pub fn badge_class_fields() -> List(Field) {
+  [
+    Text("title", "Badge Name", "", True),
+    Area("content", "Description", ""),
+    Text("image_url", "Image URL", "", False),
+  ]
+}
+
 /// The banner strip a group can show above its events.
 pub fn banner_fields(group: GroupDetail) -> List(Field) {
   [

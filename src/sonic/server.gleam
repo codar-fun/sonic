@@ -273,6 +273,9 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.SendBadge(id), Post -> do_send_badge(id, req)
     router.EventCheckin(id), Get -> checkin_page(id, req, None)
     router.EventCheckin(id), Post -> do_checkin(id, req)
+    router.BadgeClassCreate(handle), Get ->
+      group_form(handle, req, "badge", None)
+    router.BadgeClassCreate(handle), Post -> save_badge_class(handle, req)
     router.GroupInvite(handle), Get -> invite_page(handle, req, None, False)
     router.GroupInvite(handle), Post -> send_invites(handle, req)
     router.GroupMembers(handle), Get -> group_members_page(handle, req, None)
@@ -1158,6 +1161,11 @@ fn group_form(
               "Save",
               group_forms.timezone_fields(group),
             )
+            "badge" -> #(
+              "Create Badge",
+              "Save",
+              group_forms.badge_class_fields(),
+            )
             "venue" -> #(
               "Add a Venue",
               "Save",
@@ -1786,6 +1794,7 @@ fn form_path(which: String) -> String {
   case which {
     "venue" -> "venues/create"
     "track" -> "tracks/create"
+    "badge" -> "badges/create"
     "banner" -> "banner"
     "permission" -> "permission"
     "tags" -> "tags"
@@ -1864,6 +1873,22 @@ fn save_group_setting(handle: String, req: Request) -> Promise(Response) {
     auth: req.token,
   ))
   result |> to_destination("/event/" <> handle)
+}
+
+fn save_badge_class(handle: String, req: Request) -> Promise(Response) {
+  use found <- with_group(handle, req, "badge")
+  let field = fn(name) { option.unwrap(request.field(req, name), "") }
+  use result <- promise.map(badge.create_class(
+    group_id: found.id,
+    title: field("title"),
+    content: field("content"),
+    image_url: field("image_url"),
+    auth: req.token,
+  ))
+  case result {
+    Ok(created) -> Ok("/badge-class/" <> created.id)
+    Error(err) -> Error(err)
+  }
 }
 
 fn save_venue(handle: String, req: Request) -> Promise(Response) {

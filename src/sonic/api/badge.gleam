@@ -120,3 +120,36 @@ pub fn reject_voucher(
     expect: decode.success(Nil),
   )
 }
+
+/// `POST /badge_classes` — define a new badge.
+///
+/// `name` and `title` are both sent: the API treats `name` as the identifier
+/// and upstream falls back to the title when only one is given, so sending
+/// the same value for both keeps a badge created here indistinguishable from
+/// one created there.
+pub fn create_class(
+  group_id group_id: String,
+  title title: String,
+  content content: String,
+  image_url image_url: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(BadgeClass)) {
+  client.post(
+    path: "/badge_classes",
+    query: [],
+    auth: auth,
+    body: json.object([
+      #(
+        "badge_class",
+        json.object([
+          #("group_id", json.string(group_id)),
+          #("name", json.string(title)),
+          #("title", json.string(title)),
+          #("content", json.string(content)),
+          #("image_url", json.string(image_url)),
+        ]),
+      ),
+    ]),
+    expect: decoders.badge_class(),
+  )
+}

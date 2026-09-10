@@ -27,6 +27,7 @@ pub type Route {
   TrackEdit(handle: String, id: String)
   GroupMembers(handle: String)
   GroupInvite(handle: String)
+  BadgeClassCreate(handle: String)
   EventCheckin(id: String)
   SendBadge(id: String)
   BindEmail
@@ -98,6 +99,7 @@ pub fn parse(path: String) -> Route {
     ["event", handle, "tracks", "edit", id] -> TrackEdit(handle, id)
     ["group", handle, "management", "member"] -> GroupMembers(handle)
     ["group", handle, "management", "invite"] -> GroupInvite(handle)
+    ["event", handle, "badges", "create"] -> BadgeClassCreate(handle)
     ["event", "checkin", id] -> EventCheckin(id)
     ["badge-class", id, "send-badge"] -> SendBadge(id)
     ["bind-email"] -> BindEmail
@@ -158,6 +160,7 @@ pub fn href(route: Route) -> String {
     TrackEdit(handle, id) -> "/event/" <> handle <> "/tracks/edit/" <> id
     GroupMembers(handle) -> "/group/" <> handle <> "/management/member"
     GroupInvite(handle) -> "/group/" <> handle <> "/management/invite"
+    BadgeClassCreate(handle) -> "/event/" <> handle <> "/badges/create"
     EventCheckin(id) -> "/event/checkin/" <> id
     SendBadge(id) -> "/badge-class/" <> id <> "/send-badge"
     BindEmail -> "/bind-email"
