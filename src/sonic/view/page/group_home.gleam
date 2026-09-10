@@ -133,6 +133,9 @@ fn sidebar(group: GroupDetail, signed_in: Bool) -> Element(msg) {
     action(group_path(group) <> "/venues", "uil-home", "Venue List", [
       "bg-[#272928] text-white",
     ]),
+    action(group_path(group) <> "/map", "uil-location-point", "Map", [
+      "bg-[#eef3f5]",
+    ]),
     about(group.bio),
     participate(signed_in),
     filter_panel.view(),

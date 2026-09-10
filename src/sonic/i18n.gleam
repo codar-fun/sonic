@@ -184,6 +184,8 @@ const zh = [
   #("We sent a code to", "我们已发送验证码到"),
   #("Notifications", "通知"),
   #("A badge for you", "给你的徽章"),
+  #("Map", "地图"),
+  #("Open link", "打开链接"),
   #("from", "来自"),
   #("Accept", "接受"),
   #("Decline", "拒绝"),

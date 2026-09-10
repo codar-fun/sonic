@@ -301,6 +301,21 @@ pub type TrackDetail {
   )
 }
 
+/// A point of interest on a group's map. Fields follow soon's
+/// MarkerBlueprint.
+pub type Marker {
+  Marker(
+    id: String,
+    title: Option(String),
+    about: Option(String),
+    category: Option(String),
+    cover_image_url: Option(String),
+    link: Option(String),
+    place: Option(Place),
+    owner: Option(Profile),
+  )
+}
+
 /// A badge offered to someone. Fields follow soon's VoucherBlueprint.
 pub type Voucher {
   Voucher(

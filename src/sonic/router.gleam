@@ -31,6 +31,8 @@ pub type Route {
   BindEmail
   Notifications
   VoucherPage(id: String)
+  GroupMap(handle: String)
+  MarkerDetail(id: String)
   BadgeDetail(id: String)
   BadgeClassDetail(id: String)
   Schedule(handle: String)
@@ -95,6 +97,9 @@ pub fn parse(path: String) -> Route {
     ["bind-email"] -> BindEmail
     ["notifications"] -> Notifications
     ["voucher", id] -> VoucherPage(id)
+    ["event", handle, "map"] -> GroupMap(handle)
+    ["map", handle, "marker"] -> GroupMap(handle)
+    ["marker", "detail", id] -> MarkerDetail(id)
     ["profile", handle] -> Profile(handle)
     ["profile", handle, "edit"] -> ProfileEdit(handle)
     ["event", handle, "schedule", "list"] -> Schedule(handle)
@@ -147,6 +152,8 @@ pub fn href(route: Route) -> String {
     BindEmail -> "/bind-email"
     Notifications -> "/notifications"
     VoucherPage(id) -> "/voucher/" <> id
+    GroupMap(handle) -> "/event/" <> handle <> "/map"
+    MarkerDetail(id) -> "/marker/detail/" <> id
     BadgeDetail(id) -> "/badge/" <> id
     BadgeClassDetail(id) -> "/badge-class/" <> id
     Schedule(handle) -> "/event/" <> handle <> "/schedule"

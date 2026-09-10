@@ -15,7 +15,7 @@ import sonic/api/client.{type ApiResult, type Auth}
 import sonic/api/decoders
 import sonic/api/types.{
   type Event, type GroupDetail, type Membership, type Page, type TrackDetail,
-  type VenueDetail, Page,
+  type Marker, type VenueDetail, Page,
 }
 
 /// `GET /groups/:handle` — one group's full record.
@@ -441,5 +441,28 @@ pub fn tracks(
     query: [#("group_id", Some(group_id)), #("limit", Some(int.to_string(100)))],
     auth: auth,
     expect: decoders.page(of: decoders.track_detail()),
+  )
+}
+
+/// `GET /markers?group_id=…` — a group's points of interest.
+pub fn markers(
+  handle handle: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(Page(Marker))) {
+  client.get(
+    path: "/markers",
+    query: [#("group_id", Some(handle)), #("limit", Some("200"))],
+    auth: auth,
+    expect: decoders.page(of: decoders.marker()),
+  )
+}
+
+/// `GET /markers/:id` — one point of interest.
+pub fn marker(id id: String, auth auth: Auth) -> Promise(ApiResult(Marker)) {
+  client.get(
+    path: "/markers/" <> id,
+    query: [],
+    auth: auth,
+    expect: decoders.marker(),
   )
 }

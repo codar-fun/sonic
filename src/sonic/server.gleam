@@ -42,6 +42,7 @@ import sonic/view/page/group_forms
 import sonic/view/page/group_members
 import sonic/view/page/group_home
 import sonic/view/page/group_people
+import sonic/view/page/markers
 import sonic/view/page/notifications
 import sonic/view/page/popup_cities
 import sonic/view/page/register
@@ -248,6 +249,8 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.PopupCities, _ -> render(popup_cities_page(ctx.lang), ctx)
     router.GroupSetting(handle), Get -> group_form(handle, req, "setting", None)
     router.GroupSetting(handle), Post -> save_group_setting(handle, req)
+    router.GroupMap(handle), _ -> render(group_map_page(handle, req), ctx)
+    router.MarkerDetail(id), _ -> render(marker_page(id, req), ctx)
     router.VoucherPage(id), Get -> voucher_page(id, req, None, None)
     router.VoucherPage(id), Post -> answer_voucher(id, req)
     router.Notifications, _ -> notifications_page(req)
@@ -1161,6 +1164,37 @@ fn group_form(
       }
     }
   }
+}
+
+/// A group's map points, as a list. Public, like the group's other pages.
+fn group_map_page(
+  handle: String,
+  req: Request,
+) -> Promise(Result(Element(msg), ApiError)) {
+  let lang = req.lang
+  use found <- promise.await(group.detail(handle: handle, auth: req.token))
+  case found {
+    Error(err) -> promise.resolve(Error(err))
+    Ok(owner) -> {
+      use points <- promise.map(group.markers(
+        handle: handle,
+        auth: req.token,
+      ))
+      case points {
+        Ok(page) -> Ok(markers.list_view(owner, page.data, lang))
+        Error(err) -> Error(err)
+      }
+    }
+  }
+}
+
+fn marker_page(
+  id: String,
+  req: Request,
+) -> Promise(Result(Element(msg), ApiError)) {
+  let lang = req.lang
+  use result <- promise.map(group.marker(id: id, auth: req.token))
+  result |> map_ok(fn(point) { markers.detail(point, lang) })
 }
 
 /// A badge offer. Rendered for signed-out visitors too: the link is the whole
