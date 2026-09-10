@@ -31,6 +31,15 @@ pub fn view(
         ])
       None -> element.none()
     },
+    html.a(
+      [
+        attribute.href("/group/" <> handle(group) <> "/management/invite"),
+        attribute.class(
+          "block h-11 rounded-lg bg-special text-special-foreground font-semibold flex items-center justify-center mb-4",
+        ),
+      ],
+      [element.text(i18n.t(lang, "Invite Members"))],
+    ),
     case members {
       [] ->
         html.div([attribute.class("text-center text-gray-400 py-10")], [

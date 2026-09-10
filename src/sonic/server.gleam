@@ -40,6 +40,7 @@ import sonic/view/page/event_share
 import sonic/view/page/group_create
 import sonic/view/page/group_forms
 import sonic/view/page/group_members
+import sonic/view/page/group_invite
 import sonic/view/page/group_home
 import sonic/view/page/group_people
 import sonic/view/page/markers
@@ -272,6 +273,8 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.SendBadge(id), Post -> do_send_badge(id, req)
     router.EventCheckin(id), Get -> checkin_page(id, req, None)
     router.EventCheckin(id), Post -> do_checkin(id, req)
+    router.GroupInvite(handle), Get -> invite_page(handle, req, None, False)
+    router.GroupInvite(handle), Post -> send_invites(handle, req)
     router.GroupMembers(handle), Get -> group_members_page(handle, req, None)
     router.GroupMembers(handle), Post -> manage_member(handle, req)
     router.VenueEdit(handle, id), Get -> venue_edit_page(handle, id, req, None)
@@ -1470,6 +1473,82 @@ fn do_checkin(id: String, req: Request) -> Promise(Response) {
       case result {
         Ok(_) -> promise.resolve(Redirect(back, None))
         Error(err) -> checkin_page(id, req, Some(explain(err).1))
+      }
+    }
+  }
+}
+
+/// Inviting people. Needs a session; the API decides whether this account may
+/// invite to that group.
+fn invite_page(
+  handle: String,
+  req: Request,
+  problem: Option(String),
+  sent: Bool,
+) -> Promise(Response) {
+  let ctx = ctx_of(req)
+  let back = "/group/" <> handle <> "/management/invite"
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    Some(_) -> {
+      use found <- promise.map(group.detail(handle: handle, auth: req.token))
+      case found {
+        Ok(owner) ->
+          Page(
+            200,
+            document(
+              group_invite.view(owner, ctx.lang, problem, sent),
+              ctx,
+            ),
+          )
+        Error(err) -> {
+          let #(status, message) = explain(err)
+          Page(status, document(error_page.view(status, message), ctx))
+        }
+      }
+    }
+  }
+}
+
+fn send_invites(handle: String, req: Request) -> Promise(Response) {
+  let back = "/group/" <> handle <> "/management/invite"
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=" <> back, None))
+    Some(_) -> {
+      // Blank lines dropped, as with badges: a trailing newline would become
+      // an empty receiver.
+      let receivers =
+        option.unwrap(request.field(req, "receivers"), "")
+        |> string.replace("\r", "")
+        |> string.split("\n")
+        |> list.map(string.trim)
+        |> list.filter(fn(line) { line != "" })
+
+      case receivers {
+        [] ->
+          invite_page(handle, req, Some("Enter at least one receiver."), False)
+        _ -> {
+          use found <- promise.await(group.detail(
+            handle: handle,
+            auth: req.token,
+          ))
+          case found {
+            Error(err) -> invite_page(handle, req, Some(explain(err).1), False)
+            Ok(owner) -> {
+              use result <- promise.await(group.invite(
+                group_id: owner.id,
+                receivers: receivers,
+                role: option.unwrap(request.field(req, "role"), "member"),
+                auth: req.token,
+              ))
+              case result {
+                Ok(_) -> invite_page(handle, req, None, True)
+                Error(err) ->
+                  invite_page(handle, req, Some(explain(err).1), False)
+              }
+            }
+          }
+        }
       }
     }
   }

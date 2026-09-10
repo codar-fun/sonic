@@ -508,3 +508,26 @@ pub fn marker(id id: String, auth auth: Auth) -> Promise(ApiResult(Marker)) {
     expect: decoders.marker(),
   )
 }
+
+/// `POST /groups/:id/group_invites` — invite people to a group.
+///
+/// Receivers are matched the same way badge receivers are: username, wallet
+/// address or email, decided by the backend. `role` defaults to member there,
+/// so an empty one is not an error.
+pub fn invite(
+  group_id group_id: String,
+  receivers receivers: List(String),
+  role role: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(Nil)) {
+  client.post(
+    path: "/groups/" <> group_id <> "/group_invites",
+    query: [],
+    auth: auth,
+    body: json.object([
+      #("receivers", json.array(receivers, json.string)),
+      #("role", json.string(role)),
+    ]),
+    expect: decode.success(Nil),
+  )
+}
