@@ -11,7 +11,7 @@ import gleam/javascript/promise.{type Promise}
 import gleam/option.{Some}
 import sonic/api/client.{type ApiResult, type Auth}
 import sonic/api/decoders
-import sonic/api/types.{type Badge, type BadgeClass, type Page}
+import sonic/api/types.{type Badge, type BadgeClass, type Page, type Voucher}
 
 /// `GET /badge_classes/:id`
 pub fn class(id id: String, auth auth: Auth) -> Promise(ApiResult(BadgeClass)) {
@@ -71,6 +71,52 @@ pub fn send(
       #("badge_class_id", json.string(badge_class_id)),
       #("receivers", json.array(receivers, json.string)),
     ]),
+    expect: decode.success(Nil),
+  )
+}
+
+/// `GET /vouchers/:id` — a badge someone has offered.
+///
+/// Public: the offer is meant to be opened from a link, including by someone
+/// not yet signed in, who then signs in to accept it.
+pub fn voucher(id id: String, auth auth: Auth) -> Promise(ApiResult(Voucher)) {
+  client.get(
+    path: "/vouchers/" <> id,
+    query: [],
+    auth: auth,
+    expect: decoders.voucher(),
+  )
+}
+
+/// `POST /vouchers/:id/use` — accept the badge.
+///
+/// `code` matters only for code-strategy vouchers; the others are matched
+/// against the caller's account, address or email by the backend, so sending
+/// an empty code for those is harmless.
+pub fn accept_voucher(
+  id id: String,
+  code code: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(Nil)) {
+  client.post(
+    path: "/vouchers/" <> id <> "/use",
+    query: [],
+    auth: auth,
+    body: json.object([#("code", json.string(code))]),
+    expect: decode.success(Nil),
+  )
+}
+
+/// `POST /vouchers/:id/reject_badge` — decline it.
+pub fn reject_voucher(
+  id id: String,
+  auth auth: Auth,
+) -> Promise(ApiResult(Nil)) {
+  client.post(
+    path: "/vouchers/" <> id <> "/reject_badge",
+    query: [],
+    auth: auth,
+    body: json.object([]),
     expect: decode.success(Nil),
   )
 }

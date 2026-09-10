@@ -300,3 +300,29 @@ pub type TrackDetail {
     end_date: Option(String),
   )
 }
+
+/// A badge offered to someone. Fields follow soon's VoucherBlueprint.
+pub type Voucher {
+  Voucher(
+    id: String,
+    strategy: Option(String),
+    message: Option(String),
+    expires_at: Option(String),
+    badge_class: Option(BadgeClass),
+    sender: Option(Profile),
+  )
+}
+
+/// One entry in the notifications list. Fields follow soon's
+/// ActivityBlueprint.
+pub type Activity {
+  Activity(
+    id: String,
+    action: String,
+    item_type: Option(String),
+    item_id: Option(String),
+    has_read: Bool,
+    created_at: Option(String),
+    initiator: Option(Profile),
+  )
+}

@@ -11,7 +11,8 @@ import gleam/option.{Some}
 import sonic/api/client.{type ApiResult, type Auth}
 import sonic/api/decoders
 import sonic/api/types.{
-  type Badge, type BadgeClass, type Event, type Membership, type Page,
+  type Activity, type Badge, type BadgeClass, type Event, type Membership,
+  type Page,
   type SearchResults,
   type UserProfile, type VenueDetail,
 }
@@ -176,5 +177,32 @@ pub fn search(
     query: [#("keyword", Some(keyword))],
     auth: auth,
     expect: decoders.search_results(),
+  )
+}
+
+/// `GET /activities` — the notifications list for the signed-in account.
+///
+/// Ordered newest first by the backend. Requires a session: it is scoped to
+/// the caller, and anonymously it answers 401.
+pub fn activities(auth auth: Auth) -> Promise(ApiResult(Page(Activity))) {
+  client.get(
+    path: "/activities",
+    query: [#("limit", Some("100"))],
+    auth: auth,
+    expect: decoders.page(of: decoders.activity()),
+  )
+}
+
+/// `POST /activities/mark_read` — mark these as seen.
+pub fn mark_read(
+  ids ids: List(String),
+  auth auth: Auth,
+) -> Promise(ApiResult(Nil)) {
+  client.post(
+    path: "/activities/mark_read",
+    query: [],
+    auth: auth,
+    body: json.object([#("ids", json.array(ids, json.string))]),
+    expect: decode.success(Nil),
   )
 }

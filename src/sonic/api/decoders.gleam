@@ -10,12 +10,14 @@
 import gleam/dynamic/decode.{type Decoder}
 import gleam/option.{type Option, None}
 import sonic/api/types.{
-  type Badge, type BadgeClass, type Comment, type Discover, type Event,
+  type Activity, type Badge, type BadgeClass, type Comment, type Discover,
+  type Event,
   type EventRole,
   type Group, type GroupDetail, type Membership, type Meta, type Page,
   type Participant, type Place, type PopupCity, type Profile, type SearchResults, type Track,
-  type TrackDetail, type UserProfile, type Venue, type VenueDetail, Badge,
-  BadgeClass, Comment, Discover, Event, EventRole, Group, GroupDetail,
+  type TrackDetail, type UserProfile, type Venue, type VenueDetail,
+  type Voucher, Badge, Voucher,
+  Activity, BadgeClass, Comment, Discover, Event, EventRole, Group, GroupDetail,
   Membership, Meta,
   Page, Participant, Place, PopupCity, Profile, SearchResults, Track, TrackDetail,
   UserProfile, Venue, VenueDetail,
@@ -160,6 +162,42 @@ pub fn event_role() -> Decoder(EventRole) {
 pub fn recurring_interval() -> Decoder(String) {
   use interval <- opt_or("interval", "", decode.string)
   decode.success(interval)
+}
+
+pub fn voucher() -> Decoder(Voucher) {
+  use id <- decode.field("id", decode.string)
+  use strategy <- opt("strategy", decode.string)
+  use message <- opt("message", decode.string)
+  use expires_at <- opt("expires_at", decode.string)
+  use badge_class <- opt("badge_class", badge_class())
+  use sender <- opt("sender", profile())
+  decode.success(Voucher(
+    id:,
+    strategy:,
+    message:,
+    expires_at:,
+    badge_class:,
+    sender:,
+  ))
+}
+
+pub fn activity() -> Decoder(Activity) {
+  use id <- decode.field("id", decode.string)
+  use action <- opt_or("action", "", decode.string)
+  use item_type <- opt("item_type", decode.string)
+  use item_id <- opt("item_id", decode.string)
+  use has_read <- opt_or("has_read", False, decode.bool)
+  use created_at <- opt("created_at", decode.string)
+  use initiator <- opt("initiator", profile())
+  decode.success(Activity(
+    id:,
+    action:,
+    item_type:,
+    item_id:,
+    has_read:,
+    created_at:,
+    initiator:,
+  ))
 }
 
 pub fn comment() -> Decoder(Comment) {

@@ -42,6 +42,7 @@ import sonic/view/page/group_forms
 import sonic/view/page/group_members
 import sonic/view/page/group_home
 import sonic/view/page/group_people
+import sonic/view/page/notifications
 import sonic/view/page/popup_cities
 import sonic/view/page/register
 import sonic/view/page/profile
@@ -51,6 +52,7 @@ import sonic/view/page/send_badge
 import sonic/view/page/search
 import sonic/view/page/signin
 import sonic/view/page/venues
+import sonic/view/page/voucher
 import sonic/web/request.{
   type Request, type Response, ClearSession, Get, Page, Post, Redirect, Request,
   SetLanguage,
@@ -246,6 +248,9 @@ pub fn handle(req: Request) -> Promise(Response) {
     router.PopupCities, _ -> render(popup_cities_page(ctx.lang), ctx)
     router.GroupSetting(handle), Get -> group_form(handle, req, "setting", None)
     router.GroupSetting(handle), Post -> save_group_setting(handle, req)
+    router.VoucherPage(id), Get -> voucher_page(id, req, None, None)
+    router.VoucherPage(id), Post -> answer_voucher(id, req)
+    router.Notifications, _ -> notifications_page(req)
     router.BindEmail, Get -> bind_email_page(req, None)
     router.BindEmail, Post -> bind_email_step(req)
     router.SendBadge(id), Get -> send_badge_page(id, req, None, False)
@@ -1152,6 +1157,84 @@ fn group_form(
             ),
             ctx,
           )
+        }
+      }
+    }
+  }
+}
+
+/// A badge offer. Rendered for signed-out visitors too: the link is the whole
+/// invitation, and redirecting them to sign-in first hides what it was for.
+fn voucher_page(
+  id: String,
+  req: Request,
+  problem: Option(String),
+  done: Option(String),
+) -> Promise(Response) {
+  let ctx = ctx_of(req)
+  use result <- promise.map(badge.voucher(id: id, auth: req.token))
+  case result {
+    Ok(offer) ->
+      Page(
+        200,
+        document(
+          voucher.view(offer, ctx.lang, ctx.signed_in, problem, done),
+          ctx,
+        ),
+      )
+    Error(err) -> {
+      let #(status, message) = explain(err)
+      Page(status, document(error_page.view(status, message), ctx))
+    }
+  }
+}
+
+fn answer_voucher(id: String, req: Request) -> Promise(Response) {
+  case req.token {
+    None ->
+      promise.resolve(Redirect("/signin?return=/voucher/" <> id, None))
+    Some(_) -> {
+      let declining = request.field(req, "action") == Some("reject")
+      use result <- promise.await(case declining {
+        True -> badge.reject_voucher(id: id, auth: req.token)
+        False ->
+          badge.accept_voucher(
+            id: id,
+            code: option.unwrap(request.field(req, "code"), ""),
+            auth: req.token,
+          )
+      })
+      case result {
+        Ok(_) ->
+          voucher_page(
+            id,
+            req,
+            None,
+            Some(case declining {
+              True -> "Declined."
+              False -> "Badge accepted."
+            }),
+          )
+        Error(err) -> voucher_page(id, req, Some(explain(err).1), None)
+      }
+    }
+  }
+}
+
+/// Notifications. Scoped to the caller, so it needs a session — anonymously
+/// the endpoint answers 401 and there would be nothing to show.
+fn notifications_page(req: Request) -> Promise(Response) {
+  let ctx = ctx_of(req)
+  case req.token {
+    None -> promise.resolve(Redirect("/signin?return=/notifications", None))
+    Some(_) -> {
+      use result <- promise.map(profile_api.activities(auth: req.token))
+      case result {
+        Ok(page) ->
+          Page(200, document(notifications.view(page.data, ctx.lang), ctx))
+        Error(err) -> {
+          let #(status, message) = explain(err)
+          Page(status, document(error_page.view(status, message), ctx))
         }
       }
     }
